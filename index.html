@@ -95,12 +95,6 @@
             text-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
 
-        .header-info {
-            font-size: 14px;
-            color: #ccc;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-        }
-
         /* Controls */
         .controls {
             position: fixed;
@@ -524,7 +518,6 @@
     <!-- Header -->
     <header class="header" id="header">
         <div class="header-title">One Piece</div>
-        <div class="header-info" id="headerInfo">---</div>
     </header>
 
     <!-- Page Indicator -->
@@ -828,8 +821,7 @@
                         const chapterData = state.chapters.get(chapter);
                         const totalPages = chapterData ? chapterData.pages : '?';
 
-                        document.getElementById('headerInfo').textContent = `${chapter}:${pageNum}`;
-                        document.getElementById('pageIndicator').textContent = `Page ${pageNum} / ${totalPages}`;
+                        document.getElementById('pageIndicator').textContent = `${chapter}:${pageNum} / ${totalPages}`;
 
                         // Update URL for bookmarking
                         updateUrlHash(chapter, pageNum);
@@ -1025,19 +1017,35 @@
             const btnZoomOut = document.getElementById('btnZoomOut');
             const container = document.getElementById('readerContainer');
 
-            btnZoomFit.addEventListener('click', () => {
-                state.zoomMode = 'fit';
-                container.classList.remove('zoom-out');
-                btnZoomFit.classList.add('active');
-                btnZoomOut.classList.remove('active');
-            });
+            function zoomWithPositionPreserve(zoomMode) {
+                // Find current page in view
+                const currentPage = document.querySelector(
+                    `.page-wrapper[data-chapter="${state.currentVisiblePage.chapter}"][data-page="${state.currentVisiblePage.page}"]`
+                );
 
-            btnZoomOut.addEventListener('click', () => {
-                state.zoomMode = 'out';
-                container.classList.add('zoom-out');
-                btnZoomOut.classList.add('active');
-                btnZoomFit.classList.remove('active');
-            });
+                // Apply zoom
+                if (zoomMode === 'fit') {
+                    state.zoomMode = 'fit';
+                    container.classList.remove('zoom-out');
+                    btnZoomFit.classList.add('active');
+                    btnZoomOut.classList.remove('active');
+                } else {
+                    state.zoomMode = 'out';
+                    container.classList.add('zoom-out');
+                    btnZoomOut.classList.add('active');
+                    btnZoomFit.classList.remove('active');
+                }
+
+                // Scroll back to the same page after zoom
+                if (currentPage) {
+                    requestAnimationFrame(() => {
+                        currentPage.scrollIntoView({ behavior: 'instant', block: 'start' });
+                    });
+                }
+            }
+
+            btnZoomFit.addEventListener('click', () => zoomWithPositionPreserve('fit'));
+            btnZoomOut.addEventListener('click', () => zoomWithPositionPreserve('out'));
         }
 
         // Chapter selector
@@ -1221,8 +1229,10 @@
                 // Hide loading screen
                 hideLoadingScreen();
 
-                // Update header
-                document.getElementById('headerInfo').textContent = `${startChapter}:${startPage}`;
+                // Update page indicator
+                const chapterData = state.chapters.get(startChapter);
+                const totalPages = chapterData ? chapterData.pages : '?';
+                document.getElementById('pageIndicator').textContent = `${startChapter}:${startPage} / ${totalPages}`;
 
                 // Scroll to specific page if bookmarked
                 if (startPage > 1) {
