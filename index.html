@@ -296,7 +296,6 @@
             height: auto;
             display: block;
             object-fit: contain;
-            transition: max-width 0.2s ease;
         }
 
         .fit-height .page-wrapper {
@@ -1153,6 +1152,45 @@
             }, { passive: true });
         }
 
+        // Pinch to resize single image
+        function setupPinchResize() {
+            let activeImg = null;
+            let initialDistance = 0;
+            let initialWidth = 100;
+
+            function getDistance(t1, t2) {
+                const dx = t1.clientX - t2.clientX;
+                const dy = t1.clientY - t2.clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            document.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    const img = e.target.closest('.page-image');
+                    if (img && !img.classList.contains('loading')) {
+                        activeImg = img;
+                        initialDistance = getDistance(e.touches[0], e.touches[1]);
+                        const currentWidth = img.style.maxWidth;
+                        initialWidth = currentWidth ? parseInt(currentWidth) : 100;
+                    }
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchmove', (e) => {
+                if (activeImg && e.touches.length === 2) {
+                    const newDistance = getDistance(e.touches[0], e.touches[1]);
+                    const scale = newDistance / initialDistance;
+                    let newWidth = Math.round(initialWidth * scale);
+                    newWidth = Math.max(30, Math.min(100, newWidth));
+                    activeImg.style.maxWidth = newWidth + '%';
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchend', () => {
+                activeImg = null;
+            });
+        }
+
         // Initialize the app
         async function init() {
             try {
@@ -1164,6 +1202,7 @@
                 setupChapterSelector();
                 setupOrientationHandler();
                 setupPullToRefreshPrevention();
+                setupPinchResize();
 
                 // Check URL hash for bookmarked position
                 const hashParams = parseUrlHash();
