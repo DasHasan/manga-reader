@@ -288,6 +288,8 @@
             justify-content: center;
             background: #0a0a0a;
             margin-bottom: 8px;
+            overflow: hidden;
+            position: relative;
         }
 
         .page-image {
@@ -297,6 +299,12 @@
             display: block;
             object-fit: contain;
             transition: max-width 0.2s ease;
+            transform-origin: center center;
+            touch-action: pan-x pan-y;
+        }
+
+        .page-image.zoomed {
+            touch-action: none;
         }
 
         .fit-height .page-wrapper {
@@ -1144,6 +1152,139 @@
             });
         }
 
+        // Pinch to zoom
+        function setupPinchZoom() {
+            let currentImg = null;
+            let initialDistance = 0;
+            let currentScale = 1;
+            let initialScale = 1;
+            let translateX = 0;
+            let translateY = 0;
+            let initialTouchX = 0;
+            let initialTouchY = 0;
+            let isPinching = false;
+            let isPanning = false;
+
+            function getDistance(touch1, touch2) {
+                const dx = touch1.clientX - touch2.clientX;
+                const dy = touch1.clientY - touch2.clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            function getMidpoint(touch1, touch2) {
+                return {
+                    x: (touch1.clientX + touch2.clientX) / 2,
+                    y: (touch1.clientY + touch2.clientY) / 2
+                };
+            }
+
+            function updateTransform(img) {
+                img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+            }
+
+            function resetZoom(img) {
+                currentScale = 1;
+                translateX = 0;
+                translateY = 0;
+                img.style.transform = '';
+                img.classList.remove('zoomed');
+            }
+
+            document.addEventListener('touchstart', (e) => {
+                const img = e.target.closest('.page-image');
+                if (!img || img.classList.contains('loading')) return;
+
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    currentImg = img;
+                    isPinching = true;
+                    initialDistance = getDistance(e.touches[0], e.touches[1]);
+                    initialScale = currentScale;
+                } else if (e.touches.length === 1 && currentScale > 1) {
+                    isPanning = true;
+                    currentImg = img;
+                    initialTouchX = e.touches[0].clientX - translateX;
+                    initialTouchY = e.touches[0].clientY - translateY;
+                }
+            }, { passive: false });
+
+            document.addEventListener('touchmove', (e) => {
+                if (!currentImg) return;
+
+                if (isPinching && e.touches.length === 2) {
+                    e.preventDefault();
+                    const newDistance = getDistance(e.touches[0], e.touches[1]);
+                    const scaleFactor = newDistance / initialDistance;
+                    currentScale = Math.min(Math.max(initialScale * scaleFactor, 1), 4);
+
+                    if (currentScale > 1) {
+                        currentImg.classList.add('zoomed');
+                    } else {
+                        currentImg.classList.remove('zoomed');
+                        translateX = 0;
+                        translateY = 0;
+                    }
+
+                    updateTransform(currentImg);
+                } else if (isPanning && e.touches.length === 1 && currentScale > 1) {
+                    e.preventDefault();
+                    translateX = e.touches[0].clientX - initialTouchX;
+                    translateY = e.touches[0].clientY - initialTouchY;
+
+                    // Limit panning
+                    const rect = currentImg.getBoundingClientRect();
+                    const maxX = (rect.width * currentScale - rect.width) / 2;
+                    const maxY = (rect.height * currentScale - rect.height) / 2;
+                    translateX = Math.min(Math.max(translateX, -maxX), maxX);
+                    translateY = Math.min(Math.max(translateY, -maxY), maxY);
+
+                    updateTransform(currentImg);
+                }
+            }, { passive: false });
+
+            document.addEventListener('touchend', (e) => {
+                if (e.touches.length === 0) {
+                    isPinching = false;
+                    isPanning = false;
+
+                    // Reset if scale is close to 1
+                    if (currentImg && currentScale <= 1.1) {
+                        resetZoom(currentImg);
+                    }
+                } else if (e.touches.length === 1 && isPinching) {
+                    // Switched from pinch to pan
+                    isPinching = false;
+                    if (currentScale > 1) {
+                        isPanning = true;
+                        initialTouchX = e.touches[0].clientX - translateX;
+                        initialTouchY = e.touches[0].clientY - translateY;
+                    }
+                }
+            });
+
+            // Double tap to reset zoom
+            let lastTap = 0;
+            document.addEventListener('touchend', (e) => {
+                const img = e.target.closest('.page-image');
+                if (!img) return;
+
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    if (currentScale > 1) {
+                        resetZoom(img);
+                        currentImg = null;
+                    } else {
+                        // Double tap to zoom in
+                        currentImg = img;
+                        currentScale = 2;
+                        img.classList.add('zoomed');
+                        updateTransform(img);
+                    }
+                }
+                lastTap = now;
+            });
+        }
+
         // Prevent pull-to-refresh on mobile
         function setupPullToRefreshPrevention() {
             document.body.addEventListener('touchmove', (e) => {
@@ -1164,6 +1305,7 @@
                 setupChapterSelector();
                 setupOrientationHandler();
                 setupPullToRefreshPrevention();
+                setupPinchZoom();
 
                 // Check URL hash for bookmarked position
                 const hashParams = parseUrlHash();
