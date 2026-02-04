@@ -659,8 +659,7 @@
             const img = document.createElement('img');
             img.className = 'page-image loading';
             img.alt = `Chapter ${chapter} - Page ${page}`;
-            img.loading = 'lazy';
-            img.dataset.src = getImageUrl(chapter, page);
+            img.src = getImageUrl(chapter, page);
 
             img.onload = function() {
                 this.classList.remove('loading');
@@ -683,8 +682,6 @@
         window.retryLoadImage = function(btn, chapter, page) {
             const wrapper = btn.closest('.page-wrapper');
             const newWrapper = createPageElement(chapter, page);
-            const img = newWrapper.querySelector('img');
-            img.src = img.dataset.src;
             wrapper.replaceWith(newWrapper);
         };
 
@@ -724,37 +721,6 @@
             }
 
             state.chapters.set(chapter, { pages, loaded: true });
-
-            // Lazy load images
-            observeImages(section);
-        }
-
-        // Intersection Observer for lazy loading images
-        let imageObserver;
-
-        function setupImageObserver() {
-            imageObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const img = entry.target;
-                        if (img.dataset.src && !img.src) {
-                            img.src = img.dataset.src;
-                        }
-                        imageObserver.unobserve(img);
-                    }
-                });
-            }, {
-                rootMargin: '200px'
-            });
-        }
-
-        function observeImages(container) {
-            const images = container.querySelectorAll('img[data-src]');
-            images.forEach(img => {
-                if (!img.src) {
-                    imageObserver.observe(img);
-                }
-            });
         }
 
         // Infinite scroll handler
@@ -762,6 +728,9 @@
             let loadingNext = false;
 
             window.addEventListener('scroll', async () => {
+                // Always update current visible page on scroll
+                updateCurrentVisiblePage();
+
                 const scrollHeight = document.documentElement.scrollHeight;
                 const scrollTop = window.scrollY;
                 const clientHeight = window.innerHeight;
@@ -787,9 +756,6 @@
                         showEndMessage();
                     }
                 }
-
-                // Update current visible page
-                updateCurrentVisiblePage();
             });
         }
 
@@ -1095,7 +1061,6 @@
         // Initialize the app
         async function init() {
             try {
-                setupImageObserver();
                 setupInfiniteScroll();
                 setupUIToggle();
                 setupFullscreen();
