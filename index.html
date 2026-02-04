@@ -860,30 +860,40 @@
         // Update header and page indicator with current visible page
         function updateCurrentVisiblePage() {
             const pages = document.querySelectorAll('.page-wrapper');
-            const viewportCenter = window.innerHeight / 2;
+            if (pages.length === 0) return;
+
+            const viewportTop = window.scrollY;
+            const viewportCenter = viewportTop + window.innerHeight / 2;
 
             for (const page of pages) {
                 const rect = page.getBoundingClientRect();
-                if (rect.top <= viewportCenter && rect.bottom >= viewportCenter) {
+                const pageTop = rect.top + window.scrollY;
+                const pageBottom = pageTop + rect.height;
+
+                // Check if page overlaps with viewport center
+                if (pageTop <= viewportCenter && pageBottom >= viewportCenter) {
                     const chapter = parseInt(page.dataset.chapter);
                     const pageNum = parseInt(page.dataset.page);
                     const chapterData = state.chapters.get(chapter);
                     const totalPages = chapterData ? chapterData.pages : '?';
 
-                    state.currentVisiblePage = { chapter, page: pageNum };
+                    // Only update if changed
+                    if (state.currentVisiblePage.chapter !== chapter || state.currentVisiblePage.page !== pageNum) {
+                        state.currentVisiblePage = { chapter, page: pageNum };
 
-                    document.getElementById('headerInfo').textContent = `${chapter}:${pageNum}`;
-                    document.getElementById('pageIndicator').textContent = `Page ${pageNum} / ${totalPages}`;
+                        document.getElementById('headerInfo').textContent = `${chapter}:${pageNum}`;
+                        document.getElementById('pageIndicator').textContent = `Page ${pageNum} / ${totalPages}`;
 
-                    // Update URL for bookmarking
-                    updateUrlHash(chapter, pageNum);
+                        // Update URL for bookmarking
+                        updateUrlHash(chapter, pageNum);
 
-                    // Update progress bar
-                    const progress = (pageNum / totalPages) * 100;
-                    document.getElementById('progressBar').style.width = `${progress}%`;
+                        // Update progress bar
+                        const progress = (pageNum / totalPages) * 100;
+                        document.getElementById('progressBar').style.width = `${progress}%`;
 
-                    // Show page indicator briefly
-                    showPageIndicator();
+                        // Show page indicator briefly
+                        showPageIndicator();
+                    }
                     break;
                 }
             }
@@ -1016,11 +1026,16 @@
             const list = document.getElementById('chapterList');
             list.innerHTML = '';
 
+            let currentItem = null;
+
             for (let ch = state.latestChapter; ch >= CONFIG.minChapter; ch--) {
                 const item = document.createElement('div');
                 item.className = 'chapter-item';
+                item.dataset.chapter = ch;
+
                 if (state.currentVisiblePage.chapter === ch) {
                     item.classList.add('current');
+                    currentItem = item;
                 }
 
                 const chapterData = state.chapters.get(ch);
@@ -1037,6 +1052,13 @@
                 });
 
                 list.appendChild(item);
+            }
+
+            // Scroll to current chapter
+            if (currentItem) {
+                setTimeout(() => {
+                    currentItem.scrollIntoView({ behavior: 'instant', block: 'center' });
+                }, 50);
             }
         }
 
