@@ -279,6 +279,7 @@
             display: flex;
             justify-content: center;
             background: #0a0a0a;
+            margin-bottom: 8px;
         }
 
         .page-image {
@@ -363,17 +364,6 @@
 
         /* Landscape optimizations */
         @media (orientation: landscape) {
-            .page-image {
-                max-height: 100vh;
-                width: auto;
-                max-width: 100%;
-            }
-
-            .page-wrapper {
-                min-height: 100vh;
-                align-items: center;
-            }
-
             .controls-row {
                 justify-content: center;
             }
@@ -381,10 +371,6 @@
 
         /* Tablet and larger screens */
         @media (min-width: 768px) {
-            .page-image {
-                max-width: 800px;
-            }
-
             .chapter-list {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -504,10 +490,6 @@
             <button class="btn" id="btnFullscreen">
                 <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
                 <span>Fullscreen</span>
-            </button>
-            <button class="btn btn-primary" id="btnTop">
-                <svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
-                <span>Top</span>
             </button>
         </div>
     </div>
@@ -869,6 +851,9 @@
                     document.getElementById('headerInfo').textContent = `Chapter ${chapter}`;
                     document.getElementById('pageIndicator').textContent = `Page ${pageNum} / ${totalPages}`;
 
+                    // Update URL for bookmarking
+                    updateUrlHash(chapter, pageNum);
+
                     // Update progress bar
                     const progress = (pageNum / totalPages) * 100;
                     document.getElementById('progressBar').style.width = `${progress}%`;
@@ -1056,16 +1041,28 @@
             hideLoadingScreen();
             state.isLoading = false;
 
-            // Scroll to top
+            // Scroll to top and update URL
             window.scrollTo(0, 0);
+            updateUrlHash(chapter, 1);
         }
 
-        // Scroll to top button
-        function setupScrollToTop() {
-            const btn = document.getElementById('btnTop');
-            btn.addEventListener('click', () => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
+        // URL hash management for bookmarking
+        function updateUrlHash(chapter, page) {
+            const newHash = `#chapter=${chapter}&page=${page}`;
+            if (window.location.hash !== newHash) {
+                history.replaceState(null, '', newHash);
+            }
+        }
+
+        function parseUrlHash() {
+            const hash = window.location.hash.slice(1);
+            const params = new URLSearchParams(hash);
+            const chapter = parseInt(params.get('chapter'));
+            const page = parseInt(params.get('page'));
+            return {
+                chapter: isNaN(chapter) ? null : chapter,
+                page: isNaN(page) ? null : page
+            };
         }
 
         // Screen orientation handling
@@ -1103,24 +1100,46 @@
                 setupUIToggle();
                 setupFullscreen();
                 setupChapterSelector();
-                setupScrollToTop();
                 setupOrientationHandler();
                 setupPullToRefreshPrevention();
 
+                // Check URL hash for bookmarked position
+                const hashParams = parseUrlHash();
+
                 // Find latest chapter
                 state.latestChapter = await findLatestChapter();
-                state.currentChapter = state.latestChapter;
 
-                updateLoadingText(`Loading chapter ${state.latestChapter}...`);
+                // Determine which chapter to load
+                let startChapter = state.latestChapter;
+                let startPage = 1;
 
-                // Load the latest chapter
-                await loadChapter(state.latestChapter);
+                if (hashParams.chapter && hashParams.chapter >= CONFIG.minChapter && hashParams.chapter <= state.latestChapter) {
+                    startChapter = hashParams.chapter;
+                    startPage = hashParams.page || 1;
+                }
+
+                state.currentChapter = startChapter;
+
+                updateLoadingText(`Loading chapter ${startChapter}...`);
+
+                // Load the chapter
+                await loadChapter(startChapter);
 
                 // Hide loading screen
                 hideLoadingScreen();
 
                 // Update header
-                document.getElementById('headerInfo').textContent = `Chapter ${state.latestChapter}`;
+                document.getElementById('headerInfo').textContent = `Chapter ${startChapter}`;
+
+                // Scroll to specific page if bookmarked
+                if (startPage > 1) {
+                    setTimeout(() => {
+                        const targetPage = document.querySelector(`.page-wrapper[data-chapter="${startChapter}"][data-page="${startPage}"]`);
+                        if (targetPage) {
+                            targetPage.scrollIntoView({ behavior: 'instant' });
+                        }
+                    }, 100);
+                }
 
             } catch (error) {
                 console.error('Failed to initialize:', error);
