@@ -323,6 +323,42 @@
             cursor: pointer;
         }
 
+        /* Next chapter button */
+        .next-chapter-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: calc(100% - 32px);
+            max-width: 400px;
+            margin: 24px auto;
+            padding: 16px 24px;
+            background: #e74c3c;
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+
+        .next-chapter-btn:active {
+            background: #c0392b;
+            transform: scale(0.98);
+        }
+
+        .next-chapter-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .next-chapter-btn.hidden {
+            display: none;
+        }
+
         /* Loading more indicator */
         .loading-more {
             text-align: center;
@@ -704,6 +740,20 @@
             for (let p = 1; p <= pages; p++) {
                 const pageEl = createPageElement(chapter, p);
                 section.appendChild(pageEl);
+            }
+
+            // Add next chapter button if not at latest chapter
+            if (chapter < state.latestChapter) {
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'next-chapter-btn';
+                nextBtn.innerHTML = `
+                    <span>Next Chapter (${chapter + 1})</span>
+                    <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+                `;
+                nextBtn.addEventListener('click', () => {
+                    jumpToChapter(chapter + 1);
+                });
+                section.appendChild(nextBtn);
             }
 
             if (prepend) {
