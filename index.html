@@ -299,8 +299,15 @@
             transition: max-width 0.2s ease;
         }
 
-        .zoom-out .page-image {
-            max-width: 70%;
+        .fit-height .page-wrapper {
+            min-height: 100vh;
+            align-items: center;
+        }
+
+        .fit-height .page-image {
+            width: auto;
+            max-width: 100%;
+            max-height: 100vh;
         }
 
         .page-image.loading {
@@ -443,33 +450,6 @@
             transition: width 0.3s ease;
         }
 
-        /* Page indicator */
-        .page-indicator {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.8);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            color: #fff;
-            z-index: 99;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-
-        .page-indicator.visible {
-            opacity: 1;
-        }
-
-        .controls.hidden + .page-indicator {
-            bottom: 20px;
-        }
-
         /* Search / Jump to chapter */
         .jump-input-container {
             display: flex;
@@ -518,10 +498,10 @@
     <!-- Header -->
     <header class="header" id="header">
         <div class="header-title">One Piece</div>
+        <button class="btn btn-icon" id="btnChapters" title="Chapters">
+            <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+        </button>
     </header>
-
-    <!-- Page Indicator -->
-    <div class="page-indicator" id="pageIndicator">Page 1 / 20</div>
 
     <!-- Reader Container -->
     <main class="reader-container" id="readerContainer">
@@ -531,14 +511,11 @@
     <!-- Controls -->
     <div class="controls" id="controls">
         <div class="controls-row">
-            <button class="btn btn-icon" id="btnChapters" title="Chapters">
-                <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+            <button class="btn btn-icon active" id="btnFitWidth" title="Fit Width">
+                <svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
             </button>
-            <button class="btn btn-icon active" id="btnZoomFit" title="Fit Width">
-                <svg viewBox="0 0 24 24"><path d="M4 4h6v2H4v4H2V4a2 2 0 012-2zm16 0a2 2 0 012 2v6h-2V6h-6V4h6zM4 14H2v6a2 2 0 002 2h6v-2H4v-6zm16 6h-6v2h6a2 2 0 002-2v-6h-2v6z"/></svg>
-            </button>
-            <button class="btn btn-icon" id="btnZoomOut" title="Zoom Out">
-                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7z"/></svg>
+            <button class="btn btn-icon" id="btnFitHeight" title="Fit Height">
+                <svg viewBox="0 0 24 24"><path d="M4 7h16v2H4V7zm0 4h16v2H4v-2zm0 4h16v2H4v-2z"/></svg>
             </button>
             <button class="btn btn-icon" id="btnFullscreen" title="Fullscreen">
                 <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
@@ -580,7 +557,7 @@
             uiVisible: true,
             hideUITimeout: null,
             currentVisiblePage: { chapter: null, page: null },
-            zoomMode: 'fit' // 'fit' or 'out'
+            zoomMode: 'width' // 'width' or 'height'
         };
 
         // Page visibility observer
@@ -821,17 +798,12 @@
                         const chapterData = state.chapters.get(chapter);
                         const totalPages = chapterData ? chapterData.pages : '?';
 
-                        document.getElementById('pageIndicator').textContent = `${chapter}:${pageNum} / ${totalPages}`;
-
                         // Update URL for bookmarking
                         updateUrlHash(chapter, pageNum);
 
                         // Update progress bar
                         const progress = (pageNum / totalPages) * 100;
                         document.getElementById('progressBar').style.width = `${progress}%`;
-
-                        // Show page indicator briefly
-                        showPageIndicator();
                     }
                 }
             }, {
@@ -920,17 +892,6 @@
             container.appendChild(endEl);
         }
 
-        let pageIndicatorTimeout;
-        function showPageIndicator() {
-            const indicator = document.getElementById('pageIndicator');
-            indicator.classList.add('visible');
-
-            clearTimeout(pageIndicatorTimeout);
-            pageIndicatorTimeout = setTimeout(() => {
-                indicator.classList.remove('visible');
-            }, 1500);
-        }
-
         // UI visibility toggle
         function setupUIToggle() {
             const reader = document.getElementById('readerContainer');
@@ -1011,32 +972,32 @@
             }
         }
 
-        // Zoom controls
-        function setupZoom() {
-            const btnZoomFit = document.getElementById('btnZoomFit');
-            const btnZoomOut = document.getElementById('btnZoomOut');
+        // Fit controls
+        function setupFitControls() {
+            const btnFitWidth = document.getElementById('btnFitWidth');
+            const btnFitHeight = document.getElementById('btnFitHeight');
             const container = document.getElementById('readerContainer');
 
-            function zoomWithPositionPreserve(zoomMode) {
+            function setFitMode(mode) {
                 // Find current page in view
                 const currentPage = document.querySelector(
                     `.page-wrapper[data-chapter="${state.currentVisiblePage.chapter}"][data-page="${state.currentVisiblePage.page}"]`
                 );
 
-                // Apply zoom
-                if (zoomMode === 'fit') {
-                    state.zoomMode = 'fit';
-                    container.classList.remove('zoom-out');
-                    btnZoomFit.classList.add('active');
-                    btnZoomOut.classList.remove('active');
+                // Apply fit mode
+                if (mode === 'width') {
+                    state.zoomMode = 'width';
+                    container.classList.remove('fit-height');
+                    btnFitWidth.classList.add('active');
+                    btnFitHeight.classList.remove('active');
                 } else {
-                    state.zoomMode = 'out';
-                    container.classList.add('zoom-out');
-                    btnZoomOut.classList.add('active');
-                    btnZoomFit.classList.remove('active');
+                    state.zoomMode = 'height';
+                    container.classList.add('fit-height');
+                    btnFitHeight.classList.add('active');
+                    btnFitWidth.classList.remove('active');
                 }
 
-                // Scroll back to the same page after zoom
+                // Scroll back to the same page after fit change
                 if (currentPage) {
                     requestAnimationFrame(() => {
                         currentPage.scrollIntoView({ behavior: 'instant', block: 'start' });
@@ -1044,8 +1005,8 @@
                 }
             }
 
-            btnZoomFit.addEventListener('click', () => zoomWithPositionPreserve('fit'));
-            btnZoomOut.addEventListener('click', () => zoomWithPositionPreserve('out'));
+            btnFitWidth.addEventListener('click', () => setFitMode('width'));
+            btnFitHeight.addEventListener('click', () => setFitMode('height'));
         }
 
         // Chapter selector
@@ -1199,7 +1160,7 @@
                 setupInfiniteScroll();
                 setupUIToggle();
                 setupFullscreen();
-                setupZoom();
+                setupFitControls();
                 setupChapterSelector();
                 setupOrientationHandler();
                 setupPullToRefreshPrevention();
@@ -1228,11 +1189,6 @@
 
                 // Hide loading screen
                 hideLoadingScreen();
-
-                // Update page indicator
-                const chapterData = state.chapters.get(startChapter);
-                const totalPages = chapterData ? chapterData.pages : '?';
-                document.getElementById('pageIndicator').textContent = `${startChapter}:${startPage} / ${totalPages}`;
 
                 // Scroll to specific page if bookmarked
                 if (startPage > 1) {
