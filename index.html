@@ -165,6 +165,10 @@
             height: 24px;
         }
 
+        .btn-icon.active {
+            background: #e74c3c;
+        }
+
         .btn-primary {
             background: #e74c3c;
         }
@@ -298,6 +302,11 @@
             height: auto;
             display: block;
             object-fit: contain;
+            transition: max-width 0.2s ease;
+        }
+
+        .zoom-out .page-image {
+            max-width: 70%;
         }
 
         .page-image.loading {
@@ -532,6 +541,12 @@
             <button class="btn btn-icon" id="btnChapters" title="Chapters">
                 <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
             </button>
+            <button class="btn btn-icon active" id="btnZoomFit" title="Fit Width">
+                <svg viewBox="0 0 24 24"><path d="M4 4h6v2H4v4H2V4a2 2 0 012-2zm16 0a2 2 0 012 2v6h-2V6h-6V4h6zM4 14H2v6a2 2 0 002 2h6v-2H4v-6zm16 6h-6v2h6a2 2 0 002-2v-6h-2v6z"/></svg>
+            </button>
+            <button class="btn btn-icon" id="btnZoomOut" title="Zoom Out">
+                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7z"/></svg>
+            </button>
             <button class="btn btn-icon" id="btnFullscreen" title="Fullscreen">
                 <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
             </button>
@@ -571,8 +586,12 @@
             isFullscreen: false,
             uiVisible: true,
             hideUITimeout: null,
-            currentVisiblePage: { chapter: null, page: null }
+            currentVisiblePage: { chapter: null, page: null },
+            zoomMode: 'fit' // 'fit' or 'out'
         };
+
+        // Page visibility observer
+        let pageObserver;
 
         // Utility functions
         function formatPage(page) {
@@ -719,6 +738,10 @@
             };
 
             wrapper.appendChild(img);
+
+            // Observe for visibility tracking
+            observePage(wrapper);
+
             return wrapper;
         }
 
@@ -781,14 +804,62 @@
             state.chapters.set(chapter, { pages, loaded: true });
         }
 
+        // Setup page observer for tracking current visible page
+        function setupPageObserver() {
+            pageObserver = new IntersectionObserver((entries) => {
+                // Find the entry most in view
+                let mostVisible = null;
+                let maxRatio = 0;
+
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+                        maxRatio = entry.intersectionRatio;
+                        mostVisible = entry.target;
+                    }
+                });
+
+                if (mostVisible) {
+                    const chapter = parseInt(mostVisible.dataset.chapter);
+                    const pageNum = parseInt(mostVisible.dataset.page);
+
+                    if (state.currentVisiblePage.chapter !== chapter || state.currentVisiblePage.page !== pageNum) {
+                        state.currentVisiblePage = { chapter, page: pageNum };
+
+                        const chapterData = state.chapters.get(chapter);
+                        const totalPages = chapterData ? chapterData.pages : '?';
+
+                        document.getElementById('headerInfo').textContent = `${chapter}:${pageNum}`;
+                        document.getElementById('pageIndicator').textContent = `Page ${pageNum} / ${totalPages}`;
+
+                        // Update URL for bookmarking
+                        updateUrlHash(chapter, pageNum);
+
+                        // Update progress bar
+                        const progress = (pageNum / totalPages) * 100;
+                        document.getElementById('progressBar').style.width = `${progress}%`;
+
+                        // Show page indicator briefly
+                        showPageIndicator();
+                    }
+                }
+            }, {
+                root: null,
+                rootMargin: '-40% 0px -40% 0px',
+                threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5]
+            });
+        }
+
+        function observePage(pageElement) {
+            if (pageObserver) {
+                pageObserver.observe(pageElement);
+            }
+        }
+
         // Infinite scroll handler
         function setupInfiniteScroll() {
             let loadingNext = false;
 
             window.addEventListener('scroll', async () => {
-                // Always update current visible page on scroll
-                updateCurrentVisiblePage();
-
                 const scrollHeight = document.documentElement.scrollHeight;
                 const scrollTop = window.scrollY;
                 const clientHeight = window.innerHeight;
@@ -814,7 +885,7 @@
                         showEndMessage();
                     }
                 }
-            });
+            }, { passive: true });
         }
 
         function showLoadingMore() {
@@ -855,48 +926,6 @@
                 <p>No more chapters available</p>
             `;
             container.appendChild(endEl);
-        }
-
-        // Update header and page indicator with current visible page
-        function updateCurrentVisiblePage() {
-            const pages = document.querySelectorAll('.page-wrapper');
-            if (pages.length === 0) return;
-
-            const viewportTop = window.scrollY;
-            const viewportCenter = viewportTop + window.innerHeight / 2;
-
-            for (const page of pages) {
-                const rect = page.getBoundingClientRect();
-                const pageTop = rect.top + window.scrollY;
-                const pageBottom = pageTop + rect.height;
-
-                // Check if page overlaps with viewport center
-                if (pageTop <= viewportCenter && pageBottom >= viewportCenter) {
-                    const chapter = parseInt(page.dataset.chapter);
-                    const pageNum = parseInt(page.dataset.page);
-                    const chapterData = state.chapters.get(chapter);
-                    const totalPages = chapterData ? chapterData.pages : '?';
-
-                    // Only update if changed
-                    if (state.currentVisiblePage.chapter !== chapter || state.currentVisiblePage.page !== pageNum) {
-                        state.currentVisiblePage = { chapter, page: pageNum };
-
-                        document.getElementById('headerInfo').textContent = `${chapter}:${pageNum}`;
-                        document.getElementById('pageIndicator').textContent = `Page ${pageNum} / ${totalPages}`;
-
-                        // Update URL for bookmarking
-                        updateUrlHash(chapter, pageNum);
-
-                        // Update progress bar
-                        const progress = (pageNum / totalPages) * 100;
-                        document.getElementById('progressBar').style.width = `${progress}%`;
-
-                        // Show page indicator briefly
-                        showPageIndicator();
-                    }
-                    break;
-                }
-            }
         }
 
         let pageIndicatorTimeout;
@@ -988,6 +1017,27 @@
                 btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>`;
                 btn.title = 'Fullscreen';
             }
+        }
+
+        // Zoom controls
+        function setupZoom() {
+            const btnZoomFit = document.getElementById('btnZoomFit');
+            const btnZoomOut = document.getElementById('btnZoomOut');
+            const container = document.getElementById('readerContainer');
+
+            btnZoomFit.addEventListener('click', () => {
+                state.zoomMode = 'fit';
+                container.classList.remove('zoom-out');
+                btnZoomFit.classList.add('active');
+                btnZoomOut.classList.remove('active');
+            });
+
+            btnZoomOut.addEventListener('click', () => {
+                state.zoomMode = 'out';
+                container.classList.add('zoom-out');
+                btnZoomOut.classList.add('active');
+                btnZoomFit.classList.remove('active');
+            });
         }
 
         // Chapter selector
@@ -1137,9 +1187,11 @@
         // Initialize the app
         async function init() {
             try {
+                setupPageObserver();
                 setupInfiniteScroll();
                 setupUIToggle();
                 setupFullscreen();
+                setupZoom();
                 setupChapterSelector();
                 setupOrientationHandler();
                 setupPullToRefreshPrevention();
