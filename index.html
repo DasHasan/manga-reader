@@ -159,10 +159,6 @@
             height: 24px;
         }
 
-        .btn-icon.active {
-            background: #e74c3c;
-        }
-
         .btn-primary {
             background: #e74c3c;
         }
@@ -296,17 +292,6 @@
             height: auto;
             display: block;
             object-fit: contain;
-        }
-
-        .fit-height .page-wrapper {
-            min-height: 100vh;
-            align-items: center;
-        }
-
-        .fit-height .page-image {
-            width: auto;
-            max-width: 100%;
-            max-height: 100vh;
         }
 
         .page-image.loading {
@@ -510,12 +495,6 @@
     <!-- Controls -->
     <div class="controls" id="controls">
         <div class="controls-row">
-            <button class="btn btn-icon active" id="btnFitWidth" title="Fit Width">
-                <svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
-            </button>
-            <button class="btn btn-icon" id="btnFitHeight" title="Fit Height">
-                <svg viewBox="0 0 24 24"><path d="M4 7h16v2H4V7zm0 4h16v2H4v-2zm0 4h16v2H4v-2z"/></svg>
-            </button>
             <button class="btn btn-icon" id="btnFullscreen" title="Fullscreen">
                 <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
             </button>
@@ -555,8 +534,7 @@
             isFullscreen: false,
             uiVisible: true,
             hideUITimeout: null,
-            currentVisiblePage: { chapter: null, page: null },
-            zoomMode: 'width' // 'width' or 'height'
+            currentVisiblePage: { chapter: null, page: null }
         };
 
         // Page visibility observer
@@ -971,43 +949,6 @@
             }
         }
 
-        // Fit controls
-        function setupFitControls() {
-            const btnFitWidth = document.getElementById('btnFitWidth');
-            const btnFitHeight = document.getElementById('btnFitHeight');
-            const container = document.getElementById('readerContainer');
-
-            function setFitMode(mode) {
-                // Find current page in view
-                const currentPage = document.querySelector(
-                    `.page-wrapper[data-chapter="${state.currentVisiblePage.chapter}"][data-page="${state.currentVisiblePage.page}"]`
-                );
-
-                // Apply fit mode
-                if (mode === 'width') {
-                    state.zoomMode = 'width';
-                    container.classList.remove('fit-height');
-                    btnFitWidth.classList.add('active');
-                    btnFitHeight.classList.remove('active');
-                } else {
-                    state.zoomMode = 'height';
-                    container.classList.add('fit-height');
-                    btnFitHeight.classList.add('active');
-                    btnFitWidth.classList.remove('active');
-                }
-
-                // Scroll back to the same page after fit change
-                if (currentPage) {
-                    requestAnimationFrame(() => {
-                        currentPage.scrollIntoView({ behavior: 'instant', block: 'start' });
-                    });
-                }
-            }
-
-            btnFitWidth.addEventListener('click', () => setFitMode('width'));
-            btnFitHeight.addEventListener('click', () => setFitMode('height'));
-        }
-
         // Chapter selector
         function setupChapterSelector() {
             const btn = document.getElementById('btnChapters');
@@ -1127,20 +1068,22 @@
 
         // Screen orientation handling
         function setupOrientationHandler() {
-            if (screen.orientation) {
-                screen.orientation.addEventListener('change', () => {
-                    // Force re-layout on orientation change
-                    setTimeout(() => {
-                        window.dispatchEvent(new Event('resize'));
-                    }, 100);
-                });
+            function snapToCurrentPage() {
+                setTimeout(() => {
+                    const currentPage = document.querySelector(
+                        `.page-wrapper[data-chapter="${state.currentVisiblePage.chapter}"][data-page="${state.currentVisiblePage.page}"]`
+                    );
+                    if (currentPage) {
+                        currentPage.scrollIntoView({ behavior: 'instant', block: 'start' });
+                    }
+                }, 150);
             }
 
-            window.addEventListener('orientationchange', () => {
-                setTimeout(() => {
-                    window.dispatchEvent(new Event('resize'));
-                }, 100);
-            });
+            if (screen.orientation) {
+                screen.orientation.addEventListener('change', snapToCurrentPage);
+            }
+
+            window.addEventListener('orientationchange', snapToCurrentPage);
         }
 
         // Prevent pull-to-refresh on mobile
@@ -1198,7 +1141,6 @@
                 setupInfiniteScroll();
                 setupUIToggle();
                 setupFullscreen();
-                setupFitControls();
                 setupChapterSelector();
                 setupOrientationHandler();
                 setupPullToRefreshPrevention();
