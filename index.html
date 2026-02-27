@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <title>One Piece Manga Reader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #0a0a0a;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow-x: hidden;
+            overscroll-behavior: none;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top-color: #e74c3c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #888;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            padding-top: env(safe-area-inset-top, 0);
+            z-index: 100;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .header.hidden {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        /* Controls */
+        .controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+            padding: 20px 16px;
+            padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
+            z-index: 100;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .controls.hidden {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: background 0.2s ease, transform 0.1s ease;
+            touch-action: manipulation;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            background: rgba(255,255,255,0.25);
+        }
+
+        .btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .btn-icon {
+            padding: 12px;
+            border-radius: 50%;
+        }
+
+        .btn-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .btn-primary {
+            background: #e74c3c;
+        }
+
+        .btn-primary:active {
+            background: #c0392b;
+        }
+
+        /* Chapter selector */
+        .chapter-selector {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chapter-selector.active {
+            display: flex;
+        }
+
+        .chapter-selector-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            padding-top: calc(16px + env(safe-area-inset-top, 0));
+            border-bottom: 1px solid #222;
+        }
+
+        .chapter-selector-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 8px;
+            line-height: 1;
+        }
+
+        .chapter-list {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 8px;
+        }
+
+        .chapter-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .chapter-item:active {
+            background: #2a2a2a;
+        }
+
+        .chapter-item.current {
+            background: #e74c3c;
+        }
+
+        .chapter-number {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .chapter-pages {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .chapter-item.current .chapter-pages {
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Reader Container */
+        .reader-container {
+            width: 100%;
+            min-height: 100vh;
+            padding-top: env(safe-area-inset-top, 0);
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+
+        /* Chapter Section */
+        .chapter-section {
+            width: 100%;
+            border-bottom: 3px solid #e74c3c;
+            margin-bottom: 20px;
+        }
+
+        .chapter-header {
+            text-align: center;
+            padding: 20px 16px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+        }
+
+        .chapter-label {
+            font-size: 24px;
+            font-weight: 700;
+            color: #e74c3c;
+        }
+
+        /* Page Image */
+        .page-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            background: #0a0a0a;
+            margin-bottom: 8px;
+        }
+
+        .page-image {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain;
+        }
+
+        .page-image.loading {
+            min-height: 300px;
+            background: #111;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.8; }
+        }
+
+        .page-error {
+            width: 100%;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #111;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .page-error button {
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: #333;
+            border: none;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* Next chapter button */
+        .next-chapter-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: calc(100% - 32px);
+            max-width: 400px;
+            margin: 24px auto;
+            padding: 16px 24px;
+            background: #e74c3c;
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+
+        .next-chapter-btn:active {
+            background: #c0392b;
+            transform: scale(0.98);
+        }
+
+        .next-chapter-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .next-chapter-btn.hidden {
+            display: none;
+        }
+
+        /* Loading more indicator */
+        .loading-more {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .loading-more .loading-spinner {
+            width: 30px;
+            height: 30px;
+            margin: 0 auto 12px;
+        }
+
+        /* End of chapters */
+        .end-message {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .end-message h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+            color: #888;
+        }
+
+        /* Fullscreen mode */
+        .fullscreen-active .header,
+        .fullscreen-active .controls {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .fullscreen-active .header.visible,
+        .fullscreen-active .controls.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Landscape optimizations */
+        @media (orientation: landscape) {
+            .controls-row {
+                justify-content: center;
+            }
+        }
+
+        /* Tablet and larger screens */
+        @media (min-width: 768px) {
+            .chapter-list {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 12px;
+                padding: 16px;
+            }
+
+            .chapter-item {
+                margin-bottom: 0;
+            }
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: #e74c3c;
+            z-index: 150;
+            transition: width 0.3s ease;
+        }
+
+        /* Search / Jump to chapter */
+        .jump-input-container {
+            display: flex;
+            gap: 8px;
+            padding: 16px;
+            border-bottom: 1px solid #222;
+        }
+
+        .jump-input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .jump-input:focus {
+            border-color: #e74c3c;
+        }
+
+        .jump-btn {
+            background: #e74c3c;
+            border: none;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">Finding latest chapter...</div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="header-title">One Piece</div>
+        <button class="btn btn-icon" id="btnChapters" title="Chapters">
+            <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+        </button>
+    </header>
+
+    <!-- Reader Container -->
+    <main class="reader-container" id="readerContainer">
+        <!-- Pages will be dynamically inserted here -->
+    </main>
+
+    <!-- Controls -->
+    <div class="controls" id="controls">
+        <div class="controls-row">
+            <button class="btn btn-icon" id="btnFullscreen" title="Fullscreen">
+                <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Chapter Selector -->
+    <div class="chapter-selector" id="chapterSelector">
+        <div class="chapter-selector-header">
+            <h2 class="chapter-selector-title">Select Chapter</h2>
+            <button class="close-btn" id="closeChapterSelector">&times;</button>
+        </div>
+        <div class="jump-input-container">
+            <input type="number" class="jump-input" id="jumpInput" placeholder="Enter chapter number...">
+            <button class="jump-btn" id="jumpBtn">Go</button>
+        </div>
+        <div class="chapter-list" id="chapterList">
+            <!-- Chapter items will be dynamically inserted -->
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            baseUrl: 'https://scans-hot.planeptune.us/manga/One-Piece/',
+            minChapter: 1,
+            maxSearchChapter: 1200,
+            preloadAhead: 3,
+            infiniteScrollThreshold: 1000
+        };
+
+        const state = {
+            latestChapter: null,
+            currentChapter: null,
+            chapters: new Map(), // chapter -> { pages: number, loaded: boolean }
+            loadedChapters: [],
+            isLoading: false,
+            isFullscreen: false,
+            uiVisible: true,
+            hideUITimeout: null,
+            currentVisiblePage: { chapter: null, page: null }
+        };
+
+        // Page visibility observer
+        let pageObserver;
+
+        // Utility functions
+        function formatPage(page) {
+            return String(page).padStart(3, '0');
+        }
+
+        function getImageUrl(chapter, page) {
+            return `${CONFIG.baseUrl}${chapter}-${formatPage(page)}.png`;
+        }
+
+        async function checkImageExists(url) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = url;
+            });
+        }
+
+        // Find the latest chapter using binary search
+        async function findLatestChapter() {
+            updateLoadingText('Finding latest chapter...');
+
+            let low = CONFIG.minChapter;
+            let high = CONFIG.maxSearchChapter;
+            let latestFound = low;
+
+            // First, check if a known recent chapter exists
+            const recentCheck = await checkImageExists(getImageUrl(1100, 1));
+            if (recentCheck) {
+                low = 1100;
+                latestFound = 1100;
+            }
+
+            // Binary search for latest chapter
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                updateLoadingText(`Searching chapters... (${mid})`);
+
+                const exists = await checkImageExists(getImageUrl(mid, 1));
+
+                if (exists) {
+                    latestFound = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            // Verify and fine-tune
+            for (let ch = latestFound + 1; ch <= latestFound + 5; ch++) {
+                const exists = await checkImageExists(getImageUrl(ch, 1));
+                if (exists) {
+                    latestFound = ch;
+                } else {
+                    break;
+                }
+            }
+
+            return latestFound;
+        }
+
+        // Find the number of pages in a chapter
+        async function findChapterPages(chapter) {
+            if (state.chapters.has(chapter) && state.chapters.get(chapter).pages > 0) {
+                return state.chapters.get(chapter).pages;
+            }
+
+            let low = 1;
+            let high = 100;
+            let maxPage = 1;
+
+            // Check if page 1 exists
+            const firstPageExists = await checkImageExists(getImageUrl(chapter, 1));
+            if (!firstPageExists) {
+                return 0;
+            }
+
+            // Binary search for last page
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const exists = await checkImageExists(getImageUrl(chapter, mid));
+
+                if (exists) {
+                    maxPage = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            state.chapters.set(chapter, { pages: maxPage, loaded: false });
+            return maxPage;
+        }
+
+        // Update loading screen text
+        function updateLoadingText(text) {
+            document.getElementById('loadingText').textContent = text;
+        }
+
+        // Hide loading screen
+        function hideLoadingScreen() {
+            document.getElementById('loadingScreen').classList.add('hidden');
+        }
+
+        // Create chapter section HTML
+        function createChapterSection(chapter) {
+            const section = document.createElement('div');
+            section.className = 'chapter-section';
+            section.id = `chapter-${chapter}`;
+            section.dataset.chapter = chapter;
+
+            const header = document.createElement('div');
+            header.className = 'chapter-header';
+            header.innerHTML = `<div class="chapter-label">Chapter ${chapter}</div>`;
+            section.appendChild(header);
+
+            return section;
+        }
+
+        // Create page image HTML
+        function createPageElement(chapter, page) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'page-wrapper';
+            wrapper.dataset.chapter = chapter;
+            wrapper.dataset.page = page;
+
+            const img = document.createElement('img');
+            img.className = 'page-image loading';
+            img.alt = `Chapter ${chapter} - Page ${page}`;
+            img.src = getImageUrl(chapter, page);
+
+            img.onload = function() {
+                this.classList.remove('loading');
+            };
+
+            img.onerror = function() {
+                wrapper.innerHTML = `
+                    <div class="page-error">
+                        <span>Failed to load page ${page}</span>
+                        <button onclick="retryLoadImage(this, ${chapter}, ${page})">Retry</button>
+                    </div>
+                `;
+            };
+
+            wrapper.appendChild(img);
+
+            // Observe for visibility tracking
+            observePage(wrapper);
+
+            return wrapper;
+        }
+
+        // Retry loading image
+        window.retryLoadImage = function(btn, chapter, page) {
+            const wrapper = btn.closest('.page-wrapper');
+            const newWrapper = createPageElement(chapter, page);
+            wrapper.replaceWith(newWrapper);
+        };
+
+        // Load chapter into the reader
+        async function loadChapter(chapter, prepend = false) {
+            const chapterData = state.chapters.get(chapter);
+            if (chapterData && chapterData.loaded) {
+                return;
+            }
+
+            const pages = await findChapterPages(chapter);
+            if (pages === 0) {
+                return;
+            }
+
+            const section = createChapterSection(chapter);
+            const container = document.getElementById('readerContainer');
+
+            // Create all page elements
+            for (let p = 1; p <= pages; p++) {
+                const pageEl = createPageElement(chapter, p);
+                section.appendChild(pageEl);
+            }
+
+            // Add next chapter button if not at latest chapter
+            if (chapter < state.latestChapter) {
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'next-chapter-btn';
+                nextBtn.innerHTML = `
+                    <span>Next Chapter (${chapter + 1})</span>
+                    <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+                `;
+                nextBtn.addEventListener('click', () => {
+                    jumpToChapter(chapter + 1);
+                });
+                section.appendChild(nextBtn);
+            }
+
+            if (prepend) {
+                container.insertBefore(section, container.firstChild);
+                state.loadedChapters.unshift(chapter);
+            } else {
+                // Find the loading indicator or end message and insert before it
+                const loadingMore = container.querySelector('.loading-more, .end-message');
+                if (loadingMore) {
+                    container.insertBefore(section, loadingMore);
+                } else {
+                    container.appendChild(section);
+                }
+                state.loadedChapters.push(chapter);
+            }
+
+            state.chapters.set(chapter, { pages, loaded: true });
+        }
+
+        // Setup page observer for tracking current visible page
+        function setupPageObserver() {
+            pageObserver = new IntersectionObserver((entries) => {
+                // Find the entry most in view
+                let mostVisible = null;
+                let maxRatio = 0;
+
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+                        maxRatio = entry.intersectionRatio;
+                        mostVisible = entry.target;
+                    }
+                });
+
+                if (mostVisible) {
+                    const chapter = parseInt(mostVisible.dataset.chapter);
+                    const pageNum = parseInt(mostVisible.dataset.page);
+
+                    if (state.currentVisiblePage.chapter !== chapter || state.currentVisiblePage.page !== pageNum) {
+                        state.currentVisiblePage = { chapter, page: pageNum };
+
+                        const chapterData = state.chapters.get(chapter);
+                        const totalPages = chapterData ? chapterData.pages : '?';
+
+                        // Update URL for bookmarking
+                        updateUrlHash(chapter, pageNum);
+
+                        // Update progress bar
+                        const progress = (pageNum / totalPages) * 100;
+                        document.getElementById('progressBar').style.width = `${progress}%`;
+                    }
+                }
+            }, {
+                root: null,
+                rootMargin: '-40% 0px -40% 0px',
+                threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5]
+            });
+        }
+
+        function observePage(pageElement) {
+            if (pageObserver) {
+                pageObserver.observe(pageElement);
+            }
+        }
+
+        // Infinite scroll handler
+        function setupInfiniteScroll() {
+            let loadingNext = false;
+
+            window.addEventListener('scroll', async () => {
+                const scrollHeight = document.documentElement.scrollHeight;
+                const scrollTop = window.scrollY;
+                const clientHeight = window.innerHeight;
+
+                // Check if near bottom
+                if (scrollHeight - scrollTop - clientHeight < CONFIG.infiniteScrollThreshold) {
+                    if (loadingNext || state.isLoading) return;
+
+                    const lastLoadedChapter = Math.min(...state.loadedChapters);
+                    const prevChapter = lastLoadedChapter - 1;
+
+                    if (prevChapter >= CONFIG.minChapter) {
+                        loadingNext = true;
+
+                        // Show loading indicator
+                        showLoadingMore();
+
+                        await loadChapter(prevChapter);
+
+                        hideLoadingMore();
+                        loadingNext = false;
+                    } else {
+                        showEndMessage();
+                    }
+                }
+            }, { passive: true });
+        }
+
+        function showLoadingMore() {
+            const existing = document.querySelector('.loading-more');
+            if (existing) return;
+
+            const container = document.getElementById('readerContainer');
+            const loadingEl = document.createElement('div');
+            loadingEl.className = 'loading-more';
+            loadingEl.innerHTML = `
+                <div class="loading-spinner"></div>
+                <div>Loading previous chapter...</div>
+            `;
+            container.appendChild(loadingEl);
+        }
+
+        function hideLoadingMore() {
+            const loadingEl = document.querySelector('.loading-more');
+            if (loadingEl) {
+                loadingEl.remove();
+            }
+        }
+
+        function showEndMessage() {
+            const existing = document.querySelector('.end-message');
+            if (existing) return;
+
+            const loadingEl = document.querySelector('.loading-more');
+            if (loadingEl) {
+                loadingEl.remove();
+            }
+
+            const container = document.getElementById('readerContainer');
+            const endEl = document.createElement('div');
+            endEl.className = 'end-message';
+            endEl.innerHTML = `
+                <h3>You've reached the beginning!</h3>
+                <p>No more chapters available</p>
+            `;
+            container.appendChild(endEl);
+        }
+
+        // UI visibility toggle
+        function setupUIToggle() {
+            const reader = document.getElementById('readerContainer');
+
+            reader.addEventListener('click', (e) => {
+                if (e.target.closest('.btn, .page-error button')) return;
+
+                toggleUI();
+            });
+        }
+
+        function toggleUI() {
+            state.uiVisible = !state.uiVisible;
+            const header = document.getElementById('header');
+            const controls = document.getElementById('controls');
+
+            if (state.uiVisible) {
+                header.classList.remove('hidden');
+                controls.classList.remove('hidden');
+            } else {
+                header.classList.add('hidden');
+                controls.classList.add('hidden');
+            }
+        }
+
+        // Fullscreen functionality
+        function setupFullscreen() {
+            const btn = document.getElementById('btnFullscreen');
+
+            btn.addEventListener('click', () => {
+                toggleFullscreen();
+            });
+
+            document.addEventListener('fullscreenchange', () => {
+                state.isFullscreen = !!document.fullscreenElement;
+                updateFullscreenButton();
+            });
+
+            document.addEventListener('webkitfullscreenchange', () => {
+                state.isFullscreen = !!document.webkitFullscreenElement;
+                updateFullscreenButton();
+            });
+        }
+
+        function toggleFullscreen() {
+            if (!state.isFullscreen) {
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) {
+                    elem.webkitRequestFullscreen();
+                } else if (elem.mozRequestFullScreen) {
+                    elem.mozRequestFullScreen();
+                } else if (elem.msRequestFullscreen) {
+                    elem.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+
+        function updateFullscreenButton() {
+            const btn = document.getElementById('btnFullscreen');
+            if (state.isFullscreen) {
+                btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>`;
+                btn.title = 'Exit Fullscreen';
+            } else {
+                btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>`;
+                btn.title = 'Fullscreen';
+            }
+        }
+
+        // Chapter selector
+        function setupChapterSelector() {
+            const btn = document.getElementById('btnChapters');
+            const selector = document.getElementById('chapterSelector');
+            const closeBtn = document.getElementById('closeChapterSelector');
+            const jumpInput = document.getElementById('jumpInput');
+            const jumpBtn = document.getElementById('jumpBtn');
+
+            btn.addEventListener('click', () => {
+                populateChapterList();
+                selector.classList.add('active');
+            });
+
+            closeBtn.addEventListener('click', () => {
+                selector.classList.remove('active');
+            });
+
+            jumpBtn.addEventListener('click', () => {
+                const chapter = parseInt(jumpInput.value);
+                if (chapter && chapter >= CONFIG.minChapter && chapter <= state.latestChapter) {
+                    jumpToChapter(chapter);
+                    selector.classList.remove('active');
+                }
+            });
+
+            jumpInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    jumpBtn.click();
+                }
+            });
+        }
+
+        function populateChapterList() {
+            const list = document.getElementById('chapterList');
+            list.innerHTML = '';
+
+            let currentItem = null;
+
+            for (let ch = state.latestChapter; ch >= CONFIG.minChapter; ch--) {
+                const item = document.createElement('div');
+                item.className = 'chapter-item';
+                item.dataset.chapter = ch;
+
+                if (state.currentVisiblePage.chapter === ch) {
+                    item.classList.add('current');
+                    currentItem = item;
+                }
+
+                const chapterData = state.chapters.get(ch);
+                const pageInfo = chapterData ? `${chapterData.pages} pages` : '';
+
+                item.innerHTML = `
+                    <span class="chapter-number">Chapter ${ch}</span>
+                    <span class="chapter-pages">${pageInfo}</span>
+                `;
+
+                item.addEventListener('click', () => {
+                    jumpToChapter(ch);
+                    document.getElementById('chapterSelector').classList.remove('active');
+                });
+
+                list.appendChild(item);
+            }
+
+            // Scroll to current chapter
+            if (currentItem) {
+                setTimeout(() => {
+                    currentItem.scrollIntoView({ behavior: 'instant', block: 'center' });
+                }, 50);
+            }
+        }
+
+        async function jumpToChapter(chapter) {
+            // Check if chapter is already loaded
+            const existingSection = document.getElementById(`chapter-${chapter}`);
+            if (existingSection) {
+                existingSection.scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+
+            // Clear and reload from the target chapter
+            document.getElementById('readerContainer').innerHTML = '';
+            state.loadedChapters = [];
+
+            state.isLoading = true;
+            updateLoadingText(`Loading chapter ${chapter}...`);
+            document.getElementById('loadingScreen').classList.remove('hidden');
+
+            await loadChapter(chapter);
+
+            hideLoadingScreen();
+            state.isLoading = false;
+
+            // Scroll to top and update URL
+            window.scrollTo(0, 0);
+            updateUrlHash(chapter, 1);
+        }
+
+        // URL hash management for bookmarking
+        function updateUrlHash(chapter, page) {
+            const newHash = `#chapter=${chapter}&page=${page}`;
+            if (window.location.hash !== newHash) {
+                history.replaceState(null, '', newHash);
+            }
+        }
+
+        function parseUrlHash() {
+            const hash = window.location.hash.slice(1);
+            const params = new URLSearchParams(hash);
+            const chapter = parseInt(params.get('chapter'));
+            const page = parseInt(params.get('page'));
+            return {
+                chapter: isNaN(chapter) ? null : chapter,
+                page: isNaN(page) ? null : page
+            };
+        }
+
+        // Screen orientation handling
+        function setupOrientationHandler() {
+            function snapToCurrentPage() {
+                setTimeout(() => {
+                    const currentPage = document.querySelector(
+                        `.page-wrapper[data-chapter="${state.currentVisiblePage.chapter}"][data-page="${state.currentVisiblePage.page}"]`
+                    );
+                    if (currentPage) {
+                        currentPage.scrollIntoView({ behavior: 'instant', block: 'start' });
+                    }
+                }, 150);
+            }
+
+            if (screen.orientation) {
+                screen.orientation.addEventListener('change', snapToCurrentPage);
+            }
+
+            window.addEventListener('orientationchange', snapToCurrentPage);
+        }
+
+        // Prevent pull-to-refresh on mobile
+        function setupPullToRefreshPrevention() {
+            document.body.addEventListener('touchmove', (e) => {
+                if (window.scrollY === 0 && e.touches[0].clientY > 0) {
+                    // Allow scrolling but prevent pull-to-refresh
+                }
+            }, { passive: true });
+        }
+
+        // Pinch to resize single image
+        function setupPinchResize() {
+            let activeImg = null;
+            let initialDistance = 0;
+            let initialWidth = 100;
+
+            function getDistance(t1, t2) {
+                const dx = t1.clientX - t2.clientX;
+                const dy = t1.clientY - t2.clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            document.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    const img = e.target.closest('.page-image');
+                    if (img && !img.classList.contains('loading')) {
+                        activeImg = img;
+                        initialDistance = getDistance(e.touches[0], e.touches[1]);
+                        const currentWidth = img.style.maxWidth;
+                        initialWidth = currentWidth ? parseInt(currentWidth) : 100;
+                    }
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchmove', (e) => {
+                if (activeImg && e.touches.length === 2) {
+                    const newDistance = getDistance(e.touches[0], e.touches[1]);
+                    const scale = newDistance / initialDistance;
+                    let newWidth = Math.round(initialWidth * scale);
+                    newWidth = Math.max(30, Math.min(100, newWidth));
+                    activeImg.style.maxWidth = newWidth + '%';
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchend', () => {
+                activeImg = null;
+            });
+        }
+
+        // Initialize the app
+        async function init() {
+            try {
+                setupPageObserver();
+                setupInfiniteScroll();
+                setupUIToggle();
+                setupFullscreen();
+                setupChapterSelector();
+                setupOrientationHandler();
+                setupPullToRefreshPrevention();
+                setupPinchResize();
+
+                // Check URL hash for bookmarked position
+                const hashParams = parseUrlHash();
+
+                // Find latest chapter
+                state.latestChapter = await findLatestChapter();
+
+                // Determine which chapter to load
+                let startChapter = state.latestChapter;
+                let startPage = 1;
+
+                if (hashParams.chapter && hashParams.chapter >= CONFIG.minChapter && hashParams.chapter <= state.latestChapter) {
+                    startChapter = hashParams.chapter;
+                    startPage = hashParams.page || 1;
+                }
+
+                state.currentChapter = startChapter;
+
+                updateLoadingText(`Loading chapter ${startChapter}...`);
+
+                // Load the chapter
+                await loadChapter(startChapter);
+
+                // Hide loading screen
+                hideLoadingScreen();
+
+                // Scroll to specific page if bookmarked
+                if (startPage > 1) {
+                    setTimeout(() => {
+                        const targetPage = document.querySelector(`.page-wrapper[data-chapter="${startChapter}"][data-page="${startPage}"]`);
+                        if (targetPage) {
+                            targetPage.scrollIntoView({ behavior: 'instant' });
+                        }
+                    }, 100);
+                }
+
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                updateLoadingText('Failed to load. Please refresh the page.');
+            }
+        }
+
+        // Start the app
+        init();
+    </script>
+</body>
+</html>
