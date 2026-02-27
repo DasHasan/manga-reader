@@ -277,6 +277,12 @@
             color: #e74c3c;
         }
 
+        .chapter-name {
+            font-size: 14px;
+            color: #888;
+            margin-top: 4px;
+        }
+
         /* Page Image */
         .page-wrapper {
             width: 100%;
@@ -518,9 +524,7 @@
 
     <script>
         const CONFIG = {
-            baseUrl: 'https://scans-hot.planeptune.us/manga/One-Piece/',
             minChapter: 1,
-            maxSearchChapter: 1200,
             preloadAhead: 3,
             infiniteScrollThreshold: 1000
         };
@@ -540,98 +544,18 @@
         // Page visibility observer
         let pageObserver;
 
-        // Utility functions
-        function formatPage(page) {
-            return String(page).padStart(3, '0');
+        // Read page count from state (populated from chapter list)
+        function findChapterPages(chapter) {
+            const chapterData = state.chapters.get(chapter);
+            return chapterData ? chapterData.pages : 0;
         }
 
-        function getImageUrl(chapter, page) {
-            return `${CONFIG.baseUrl}${chapter}-${formatPage(page)}.png`;
-        }
-
-        async function checkImageExists(url) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => resolve(true);
-                img.onerror = () => resolve(false);
-                img.src = url;
-            });
-        }
-
-        // Find the latest chapter using binary search
-        async function findLatestChapter() {
-            updateLoadingText('Finding latest chapter...');
-
-            let low = CONFIG.minChapter;
-            let high = CONFIG.maxSearchChapter;
-            let latestFound = low;
-
-            // First, check if a known recent chapter exists
-            const recentCheck = await checkImageExists(getImageUrl(1100, 1));
-            if (recentCheck) {
-                low = 1100;
-                latestFound = 1100;
-            }
-
-            // Binary search for latest chapter
-            while (low <= high) {
-                const mid = Math.floor((low + high) / 2);
-                updateLoadingText(`Searching chapters... (${mid})`);
-
-                const exists = await checkImageExists(getImageUrl(mid, 1));
-
-                if (exists) {
-                    latestFound = mid;
-                    low = mid + 1;
-                } else {
-                    high = mid - 1;
-                }
-            }
-
-            // Verify and fine-tune
-            for (let ch = latestFound + 1; ch <= latestFound + 5; ch++) {
-                const exists = await checkImageExists(getImageUrl(ch, 1));
-                if (exists) {
-                    latestFound = ch;
-                } else {
-                    break;
-                }
-            }
-
-            return latestFound;
-        }
-
-        // Find the number of pages in a chapter
-        async function findChapterPages(chapter) {
-            if (state.chapters.has(chapter) && state.chapters.get(chapter).pages > 0) {
-                return state.chapters.get(chapter).pages;
-            }
-
-            let low = 1;
-            let high = 100;
-            let maxPage = 1;
-
-            // Check if page 1 exists
-            const firstPageExists = await checkImageExists(getImageUrl(chapter, 1));
-            if (!firstPageExists) {
-                return 0;
-            }
-
-            // Binary search for last page
-            while (low <= high) {
-                const mid = Math.floor((low + high) / 2);
-                const exists = await checkImageExists(getImageUrl(chapter, mid));
-
-                if (exists) {
-                    maxPage = mid;
-                    low = mid + 1;
-                } else {
-                    high = mid - 1;
-                }
-            }
-
-            state.chapters.set(chapter, { pages: maxPage, loaded: false });
-            return maxPage;
+        // Fetch page URLs and chapter metadata from the worker
+        async function fetchChapterData(chapter) {
+            const response = await fetch(`${WORKER_URL}/chapter/${chapter}`);
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            return data;
         }
 
         // Update loading screen text
@@ -645,7 +569,7 @@
         }
 
         // Create chapter section HTML
-        function createChapterSection(chapter) {
+        function createChapterSection(chapter, name) {
             const section = document.createElement('div');
             section.className = 'chapter-section';
             section.id = `chapter-${chapter}`;
@@ -653,23 +577,27 @@
 
             const header = document.createElement('div');
             header.className = 'chapter-header';
-            header.innerHTML = `<div class="chapter-label">Chapter ${chapter}</div>`;
+            header.innerHTML = `
+                <div class="chapter-label">Kapitel ${chapter}</div>
+                ${name ? `<div class="chapter-name">${name}</div>` : ''}
+            `;
             section.appendChild(header);
 
             return section;
         }
 
         // Create page image HTML
-        function createPageElement(chapter, page) {
+        function createPageElement(chapter, page, url) {
             const wrapper = document.createElement('div');
             wrapper.className = 'page-wrapper';
             wrapper.dataset.chapter = chapter;
             wrapper.dataset.page = page;
+            wrapper.dataset.url = url;
 
             const img = document.createElement('img');
             img.className = 'page-image loading';
             img.alt = `Chapter ${chapter} - Page ${page}`;
-            img.src = getImageUrl(chapter, page);
+            img.src = url;
 
             img.onload = function() {
                 this.classList.remove('loading');
@@ -695,7 +623,8 @@
         // Retry loading image
         window.retryLoadImage = function(btn, chapter, page) {
             const wrapper = btn.closest('.page-wrapper');
-            const newWrapper = createPageElement(chapter, page);
+            const url = wrapper.dataset.url;
+            const newWrapper = createPageElement(chapter, page, url);
             wrapper.replaceWith(newWrapper);
         };
 
@@ -706,17 +635,22 @@
                 return;
             }
 
-            const pages = await findChapterPages(chapter);
-            if (pages === 0) {
+            const data = await fetchChapterData(chapter);
+            const pageUrls = data.chapter.pages.map(p => p.url);
+
+            if (!pageUrls.length) {
                 return;
             }
 
-            const section = createChapterSection(chapter);
+            // Update state with fetched page URLs and count
+            state.chapters.set(chapter, { pages: pageUrls.length, loaded: false });
+
+            const section = createChapterSection(chapter, data.chapter.name);
             const container = document.getElementById('readerContainer');
 
             // Create all page elements
-            for (let p = 1; p <= pages; p++) {
-                const pageEl = createPageElement(chapter, p);
+            for (let i = 0; i < pageUrls.length; i++) {
+                const pageEl = createPageElement(chapter, i + 1, pageUrls[i]);
                 section.appendChild(pageEl);
             }
 
@@ -748,7 +682,7 @@
                 state.loadedChapters.push(chapter);
             }
 
-            state.chapters.set(chapter, { pages, loaded: true });
+            state.chapters.set(chapter, { pages: pageUrls.length, loaded: true });
         }
 
         // Setup page observer for tracking current visible page
@@ -1134,6 +1068,21 @@
             });
         }
 
+        // Worker URL — after deploying, replace with your actual workers.dev URL
+        const WORKER_URL = 'https://manga-proxy.hasan-celik1501.workers.dev';
+
+        // Fetch chapter list from the Cloudflare Worker proxy
+        async function fetchChapterEntries() {
+            updateLoadingText('Loading chapter list...');
+            const response = await fetch(WORKER_URL);
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+
+            return (data.entries || [])
+                .filter(e => e.is_available && e.lang === 'ger')
+                .sort((a, b) => b.number - a.number);
+        }
+
         // Initialize the app
         async function init() {
             try {
@@ -1149,8 +1098,16 @@
                 // Check URL hash for bookmarked position
                 const hashParams = parseUrlHash();
 
-                // Find latest chapter
-                state.latestChapter = await findLatestChapter();
+                // Fetch chapter list — replaces binary search
+                const entries = await fetchChapterEntries();
+                if (!entries.length) throw new Error('Chapter list is empty');
+
+                // Populate state from entries (number → pages)
+                for (const entry of entries) {
+                    state.chapters.set(entry.number, { pages: entry.pages, loaded: false });
+                }
+                state.latestChapter = entries[0].number;
+                CONFIG.minChapter = entries[entries.length - 1].number;
 
                 // Determine which chapter to load
                 let startChapter = state.latestChapter;
