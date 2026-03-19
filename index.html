@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
@@ -207,6 +207,7 @@
             cursor: pointer;
             padding: 8px;
             line-height: 1;
+            touch-action: manipulation;
         }
 
         .chapter-list {
@@ -226,6 +227,7 @@
             margin-bottom: 8px;
             cursor: pointer;
             transition: background 0.2s ease;
+            touch-action: manipulation;
         }
 
         .chapter-item:active {
@@ -395,7 +397,7 @@
             color: #888;
         }
 
-        /* Fullscreen mode */
+        /* Fullscreen / immersive mode */
         .fullscreen-active .header,
         .fullscreen-active .controls {
             opacity: 0;
@@ -406,6 +408,15 @@
         .fullscreen-active .controls.visible {
             opacity: 1;
             pointer-events: auto;
+        }
+
+        /* iOS immersive mode (CSS-based since Fullscreen API is unavailable) */
+        body.immersive .header,
+        body.immersive .controls,
+        body.immersive .progress-bar {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
         }
 
         /* Landscape optimizations */
@@ -472,6 +483,7 @@
             font-size: 16px;
             font-weight: 500;
             cursor: pointer;
+            touch-action: manipulation;
         }
     </style>
 </head>
@@ -514,7 +526,7 @@
             <button class="close-btn" id="closeChapterSelector">&times;</button>
         </div>
         <div class="jump-input-container">
-            <input type="number" class="jump-input" id="jumpInput" placeholder="Enter chapter number...">
+            <input type="number" inputmode="numeric" class="jump-input" id="jumpInput" placeholder="Enter chapter number..." autocomplete="off" autocorrect="off" autocapitalize="off">
             <button class="jump-btn" id="jumpBtn">Go</button>
         </div>
         <div class="chapter-list" id="chapterList">
@@ -597,6 +609,8 @@
             const img = document.createElement('img');
             img.className = 'page-image loading';
             img.alt = `Chapter ${chapter} - Page ${page}`;
+            img.loading = 'lazy';
+            img.decoding = 'async';
             img.src = url;
 
             img.onload = function() {
@@ -803,12 +817,20 @@
             container.appendChild(endEl);
         }
 
-        // UI visibility toggle
+        // UI visibility toggle — ignores double-taps (used for native zoom)
         function setupUIToggle() {
             const reader = document.getElementById('readerContainer');
+            let lastClickTime = 0;
 
             reader.addEventListener('click', (e) => {
                 if (e.target.closest('.btn, .page-error button')) return;
+
+                const now = Date.now();
+                if (now - lastClickTime < 350) {
+                    lastClickTime = now;
+                    return; // double-tap — let browser handle native zoom
+                }
+                lastClickTime = now;
 
                 toggleUI();
             });
@@ -828,9 +850,29 @@
             }
         }
 
+        // iOS Safari does not support the Fullscreen API on iPhone.
+        // Detect iOS so we can show a CSS-based immersive mode instead.
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const supportsFullscreen = !isIOS && (
+            document.documentElement.requestFullscreen ||
+            document.documentElement.webkitRequestFullscreen
+        );
+
         // Fullscreen functionality
         function setupFullscreen() {
             const btn = document.getElementById('btnFullscreen');
+
+            if (!supportsFullscreen) {
+                // On iOS, repurpose the button as an immersive-mode toggle (hide all UI chrome)
+                btn.title = 'Immersive Mode';
+                btn.addEventListener('click', () => {
+                    state.isFullscreen = !state.isFullscreen;
+                    document.body.classList.toggle('immersive', state.isFullscreen);
+                    updateFullscreenButton();
+                });
+                return;
+            }
 
             btn.addEventListener('click', () => {
                 toggleFullscreen();
@@ -876,10 +918,10 @@
             const btn = document.getElementById('btnFullscreen');
             if (state.isFullscreen) {
                 btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>`;
-                btn.title = 'Exit Fullscreen';
+                btn.title = supportsFullscreen ? 'Exit Fullscreen' : 'Exit Immersive Mode';
             } else {
                 btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>`;
-                btn.title = 'Fullscreen';
+                btn.title = supportsFullscreen ? 'Fullscreen' : 'Immersive Mode';
             }
         }
 
@@ -1010,7 +1052,7 @@
                     if (currentPage) {
                         currentPage.scrollIntoView({ behavior: 'instant', block: 'start' });
                     }
-                }, 150);
+                }, 300);
             }
 
             if (screen.orientation) {
@@ -1020,52 +1062,55 @@
             window.addEventListener('orientationchange', snapToCurrentPage);
         }
 
-        // Prevent pull-to-refresh on mobile
-        function setupPullToRefreshPrevention() {
-            document.body.addEventListener('touchmove', (e) => {
-                if (window.scrollY === 0 && e.touches[0].clientY > 0) {
-                    // Allow scrolling but prevent pull-to-refresh
+        // Double-tap to zoom individual page images (2x toggle)
+        // Native pinch-to-zoom is also available via the browser since user-scalable is enabled.
+        function setupDoubleTapZoom() {
+            let lastTapTime = 0;
+            let lastTapTarget = null;
+            const zoomedImages = new WeakMap();
+
+            document.addEventListener('touchend', function(e) {
+                // Only fire when all fingers are lifted
+                if (e.touches.length !== 0) return;
+
+                const img = e.target.closest('.page-image');
+                if (!img || img.classList.contains('loading')) return;
+
+                const now = Date.now();
+                const isDoubleTap = (now - lastTapTime < 350) && lastTapTarget === img;
+                lastTapTime = now;
+                lastTapTarget = img;
+
+                if (!isDoubleTap) return;
+
+                // Prevent native double-tap zoom from also firing
+                e.preventDefault();
+
+                const isZoomed = zoomedImages.get(img);
+
+                if (!isZoomed) {
+                    // Zoom in 2.5x centred on the tap point
+                    const touch = e.changedTouches[0];
+                    const rect = img.getBoundingClientRect();
+                    const originX = ((touch.clientX - rect.left) / rect.width) * 100;
+                    const originY = ((touch.clientY - rect.top) / rect.height) * 100;
+
+                    img.style.transformOrigin = `${originX}% ${originY}%`;
+                    img.style.transition = 'transform 0.25s ease';
+                    img.style.transform = 'scale(2.5)';
+                    img.style.position = 'relative';
+                    img.style.zIndex = '5';
+                    zoomedImages.set(img, true);
+                } else {
+                    // Zoom back out
+                    img.style.transition = 'transform 0.25s ease';
+                    img.style.transform = '';
+                    img.style.transformOrigin = '';
+                    img.style.position = '';
+                    img.style.zIndex = '';
+                    zoomedImages.set(img, false);
                 }
-            }, { passive: true });
-        }
-
-        // Pinch to resize single image
-        function setupPinchResize() {
-            let activeImg = null;
-            let initialDistance = 0;
-            let initialWidth = 100;
-
-            function getDistance(t1, t2) {
-                const dx = t1.clientX - t2.clientX;
-                const dy = t1.clientY - t2.clientY;
-                return Math.sqrt(dx * dx + dy * dy);
-            }
-
-            document.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 2) {
-                    const img = e.target.closest('.page-image');
-                    if (img && !img.classList.contains('loading')) {
-                        activeImg = img;
-                        initialDistance = getDistance(e.touches[0], e.touches[1]);
-                        const currentWidth = img.style.maxWidth;
-                        initialWidth = currentWidth ? parseInt(currentWidth) : 100;
-                    }
-                }
-            }, { passive: true });
-
-            document.addEventListener('touchmove', (e) => {
-                if (activeImg && e.touches.length === 2) {
-                    const newDistance = getDistance(e.touches[0], e.touches[1]);
-                    const scale = newDistance / initialDistance;
-                    let newWidth = Math.round(initialWidth * scale);
-                    newWidth = Math.max(30, Math.min(100, newWidth));
-                    activeImg.style.maxWidth = newWidth + '%';
-                }
-            }, { passive: true });
-
-            document.addEventListener('touchend', () => {
-                activeImg = null;
-            });
+            }, { passive: false });
         }
 
         // Worker URL — after deploying, replace with your actual workers.dev URL
@@ -1092,8 +1137,7 @@
                 setupFullscreen();
                 setupChapterSelector();
                 setupOrientationHandler();
-                setupPullToRefreshPrevention();
-                setupPinchResize();
+                setupDoubleTapZoom();
 
                 // Check URL hash for bookmarked position
                 const hashParams = parseUrlHash();
