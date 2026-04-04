@@ -426,12 +426,12 @@
             }
 
             .reader-container {
-                padding-left: max(8px, env(safe-area-inset-left, 0));
-                padding-right: max(8px, env(safe-area-inset-right, 0));
+                padding-left: env(safe-area-inset-left, 0);
+                padding-right: env(safe-area-inset-right, 0);
             }
 
             .page-image {
-                max-width: 75vh;
+                max-width: 100%;
             }
         }
 
@@ -1076,7 +1076,7 @@
 
         // Fetch chapter list from the Cloudflare Worker proxy
         async function fetchChapterEntries() {
-            updateLoadingText('Loading chapter list...');
+            updateLoadingText('Kapitelliste wird geladen...');
             const response = await fetch(WORKER_URL);
             const data = await response.json();
             if (data.error) throw new Error(data.error);
@@ -1121,7 +1121,7 @@
 
                 state.currentChapter = startChapter;
 
-                updateLoadingText(`Loading chapter ${startChapter}...`);
+                updateLoadingText(`Kapitel ${startChapter} wird geladen...`);
 
                 // Load the chapter
                 await loadChapter(startChapter);
