@@ -426,8 +426,8 @@
             }
 
             .reader-container {
-                padding-left: max(48px, env(safe-area-inset-left, 0));
-                padding-right: max(48px, env(safe-area-inset-right, 0));
+                padding-left: max(8px, env(safe-area-inset-left, 0));
+                padding-right: max(8px, env(safe-area-inset-right, 0));
             }
 
             .page-image {
@@ -500,7 +500,7 @@
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
         <div class="loading-spinner"></div>
-        <div class="loading-text" id="loadingText">Finding latest chapter...</div>
+        <div class="loading-text" id="loadingText">Neuestes Kapitel wird geladen...</div>
     </div>
 
     <!-- Progress Bar -->
@@ -509,7 +509,7 @@
     <!-- Header -->
     <header class="header" id="header">
         <div class="header-title">One Piece</div>
-        <button class="btn btn-icon" id="btnChapters" title="Chapters">
+        <button class="btn btn-icon" id="btnChapters" title="Kapitel">
             <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
         </button>
     </header>
@@ -522,7 +522,7 @@
     <!-- Controls -->
     <div class="controls" id="controls">
         <div class="controls-row">
-            <button class="btn btn-icon" id="btnFullscreen" title="Fullscreen">
+            <button class="btn btn-icon" id="btnFullscreen" title="Vollbild">
                 <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
             </button>
         </div>
@@ -531,12 +531,12 @@
     <!-- Chapter Selector -->
     <div class="chapter-selector" id="chapterSelector">
         <div class="chapter-selector-header">
-            <h2 class="chapter-selector-title">Select Chapter</h2>
+            <h2 class="chapter-selector-title">Kapitel auswählen</h2>
             <button class="close-btn" id="closeChapterSelector">&times;</button>
         </div>
         <div class="jump-input-container">
-            <input type="number" inputmode="numeric" class="jump-input" id="jumpInput" placeholder="Enter chapter number..." autocomplete="off" autocorrect="off" autocapitalize="off">
-            <button class="jump-btn" id="jumpBtn">Go</button>
+            <input type="number" inputmode="numeric" class="jump-input" id="jumpInput" placeholder="Kapitelnummer eingeben..." autocomplete="off" autocorrect="off" autocapitalize="off">
+            <button class="jump-btn" id="jumpBtn">Los</button>
         </div>
         <div class="chapter-list" id="chapterList">
             <!-- Chapter items will be dynamically inserted -->
@@ -629,8 +629,8 @@
             img.onerror = function() {
                 wrapper.innerHTML = `
                     <div class="page-error">
-                        <span>Failed to load page ${page}</span>
-                        <button onclick="retryLoadImage(this, ${chapter}, ${page})">Retry</button>
+                        <span>Seite ${page} konnte nicht geladen werden</span>
+                        <button onclick="retryLoadImage(this, ${chapter}, ${page})">Erneut versuchen</button>
                     </div>
                 `;
             };
@@ -682,7 +682,7 @@
                 const nextBtn = document.createElement('button');
                 nextBtn.className = 'next-chapter-btn';
                 nextBtn.innerHTML = `
-                    <span>Next Chapter (${chapter + 1})</span>
+                    <span>Nächstes Kapitel (${chapter + 1})</span>
                     <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
                 `;
                 nextBtn.addEventListener('click', () => {
@@ -795,7 +795,7 @@
             loadingEl.className = 'loading-more';
             loadingEl.innerHTML = `
                 <div class="loading-spinner"></div>
-                <div>Loading previous chapter...</div>
+                <div>Vorheriges Kapitel wird geladen...</div>
             `;
             container.appendChild(loadingEl);
         }
@@ -820,8 +820,8 @@
             const endEl = document.createElement('div');
             endEl.className = 'end-message';
             endEl.innerHTML = `
-                <h3>You've reached the beginning!</h3>
-                <p>No more chapters available</p>
+                <h3>Du hast den Anfang erreicht!</h3>
+                <p>Keine weiteren Kapitel verfügbar</p>
             `;
             container.appendChild(endEl);
         }
@@ -874,7 +874,7 @@
 
             if (!supportsFullscreen) {
                 // On iOS, repurpose the button as an immersive-mode toggle (hide all UI chrome)
-                btn.title = 'Immersive Mode';
+                btn.title = 'Immersiver Modus';
                 btn.addEventListener('click', () => {
                     state.isFullscreen = !state.isFullscreen;
                     document.body.classList.toggle('immersive', state.isFullscreen);
@@ -927,10 +927,10 @@
             const btn = document.getElementById('btnFullscreen');
             if (state.isFullscreen) {
                 btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>`;
-                btn.title = supportsFullscreen ? 'Exit Fullscreen' : 'Exit Immersive Mode';
+                btn.title = supportsFullscreen ? 'Vollbild beenden' : 'Immersiven Modus beenden';
             } else {
                 btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>`;
-                btn.title = supportsFullscreen ? 'Fullscreen' : 'Immersive Mode';
+                btn.title = supportsFullscreen ? 'Vollbild' : 'Immersiver Modus';
             }
         }
 
@@ -983,10 +983,10 @@
                 }
 
                 const chapterData = state.chapters.get(ch);
-                const pageInfo = chapterData ? `${chapterData.pages} pages` : '';
+                const pageInfo = chapterData ? `${chapterData.pages} Seiten` : '';
 
                 item.innerHTML = `
-                    <span class="chapter-number">Chapter ${ch}</span>
+                    <span class="chapter-number">Kapitel ${ch}</span>
                     <span class="chapter-pages">${pageInfo}</span>
                 `;
 
@@ -1019,7 +1019,7 @@
             state.loadedChapters = [];
 
             state.isLoading = true;
-            updateLoadingText(`Loading chapter ${chapter}...`);
+            updateLoadingText(`Kapitel ${chapter} wird geladen...`);
             document.getElementById('loadingScreen').classList.remove('hidden');
 
             await loadChapter(chapter);
@@ -1141,7 +1141,7 @@
 
             } catch (error) {
                 console.error('Failed to initialize:', error);
-                updateLoadingText('Failed to load. Please refresh the page.');
+                updateLoadingText('Laden fehlgeschlagen. Bitte Seite neu laden.');
             }
         }
 
