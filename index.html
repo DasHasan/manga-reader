@@ -424,6 +424,15 @@
             .controls-row {
                 justify-content: center;
             }
+
+            .reader-container {
+                padding-left: max(48px, env(safe-area-inset-left, 0));
+                padding-right: max(48px, env(safe-area-inset-right, 0));
+            }
+
+            .page-image {
+                max-width: 75vh;
+            }
         }
 
         /* Tablet and larger screens */
@@ -1062,166 +1071,6 @@
             window.addEventListener('orientationchange', snapToCurrentPage);
         }
 
-        // Double-tap opens a full-screen zoom overlay with drag-to-pan and pinch-to-zoom.
-        // Native browser pinch-to-zoom is also available since user-scalable is enabled.
-        function setupDoubleTapZoom() {
-            let lastTapTime = 0;
-            let lastTapTarget = null;
-
-            document.addEventListener('touchend', function(e) {
-                if (e.touches.length !== 0) return;
-
-                const img = e.target.closest('.page-image');
-                if (!img || img.classList.contains('loading')) return;
-
-                const now = Date.now();
-                const isDoubleTap = (now - lastTapTime < 350) && lastTapTarget === img;
-                lastTapTime = now;
-                lastTapTarget = img;
-
-                if (!isDoubleTap) return;
-                e.preventDefault();
-
-                const touch = e.changedTouches[0];
-                const rect = img.getBoundingClientRect();
-                const ox = (touch.clientX - rect.left) / rect.width;  // 0–1
-                const oy = (touch.clientY - rect.top) / rect.height;
-
-                openZoomOverlay(img, ox, oy);
-            }, { passive: false });
-
-            function openZoomOverlay(sourceImg, ox, oy) {
-                let scale = 2.5;
-                let panX = 0;
-                let panY = 0;
-
-                // --- Build overlay DOM ---
-                const overlay = document.createElement('div');
-                overlay.style.cssText =
-                    'position:fixed;top:0;left:0;right:0;bottom:0;z-index:500;' +
-                    'background:rgba(0,0,0,0.97);overflow:hidden;touch-action:none;';
-
-                const img = document.createElement('img');
-                img.src = sourceImg.src;
-                img.style.cssText =
-                    'position:absolute;top:50%;left:50%;' +
-                    'max-width:100vw;max-height:100vh;display:block;' +
-                    'user-select:none;-webkit-user-select:none;' +
-                    'transform-origin:50% 50%;will-change:transform;';
-
-                const hint = document.createElement('div');
-                hint.textContent = 'Double-tap or pinch to close';
-                hint.style.cssText =
-                    'position:absolute;bottom:calc(20px + env(safe-area-inset-bottom,0));' +
-                    'left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.45);' +
-                    'font-size:13px;pointer-events:none;white-space:nowrap;' +
-                    'transition:opacity 1.5s ease;';
-
-                overlay.appendChild(img);
-                overlay.appendChild(hint);
-                document.body.appendChild(overlay);
-
-                // --- Transform helper ---
-                // translate(calc(-50% + panX), calc(-50% + panY)) keeps the img centred
-                // before any pan, then scale from that centre.
-                function applyTransform(animated) {
-                    img.style.transition = animated ? 'transform 0.25s ease' : 'none';
-                    img.style.transform =
-                        `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${scale})`;
-                }
-
-                // Centre on the tapped point once layout is known
-                requestAnimationFrame(() => {
-                    const iw = img.offsetWidth;
-                    const ih = img.offsetHeight;
-                    panX = -(ox - 0.5) * iw * scale;
-                    panY = -(oy - 0.5) * ih * scale;
-                    applyTransform(true);
-
-                    // Fade hint out after 2 s
-                    setTimeout(() => { hint.style.opacity = '0'; }, 2000);
-                });
-
-                // --- Touch tracking ---
-                let startTouches = [];
-                let startPanX = 0, startPanY = 0, startScale = 1;
-                let lastTapInOverlay = 0;
-
-                function tDist(t) {
-                    const dx = t[0].clientX - t[1].clientX;
-                    const dy = t[0].clientY - t[1].clientY;
-                    return Math.sqrt(dx * dx + dy * dy);
-                }
-                function tMid(t) {
-                    return {
-                        x: (t[0].clientX + t[1].clientX) / 2,
-                        y: (t[0].clientY + t[1].clientY) / 2
-                    };
-                }
-
-                overlay.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    startTouches = Array.from(e.touches);
-                    startPanX = panX;
-                    startPanY = panY;
-                    startScale = scale;
-                }, { passive: false });
-
-                overlay.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    const t = Array.from(e.touches);
-
-                    if (t.length === 1) {
-                        panX = startPanX + t[0].clientX - startTouches[0].clientX;
-                        panY = startPanY + t[0].clientY - startTouches[0].clientY;
-                    } else if (t.length >= 2 && startTouches.length >= 2) {
-                        const newDist = tDist(t);
-                        const oldDist = tDist(startTouches);
-                        scale = Math.max(0.8, Math.min(5, startScale * newDist / oldDist));
-
-                        const newMid = tMid(t);
-                        const oldMid = tMid(startTouches);
-                        panX = startPanX + newMid.x - oldMid.x;
-                        panY = startPanY + newMid.y - oldMid.y;
-                    }
-
-                    applyTransform(false);
-                }, { passive: false });
-
-                overlay.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-
-                    if (e.touches.length === 0) {
-                        // Double-tap inside overlay → close
-                        const now = Date.now();
-                        if (now - lastTapInOverlay < 350) {
-                            closeOverlay();
-                            return;
-                        }
-                        lastTapInOverlay = now;
-
-                        // Pinch released below threshold → close
-                        if (scale < 1.2) {
-                            closeOverlay();
-                            return;
-                        }
-                    }
-
-                    // Re-baseline for next gesture segment
-                    startTouches = Array.from(e.touches);
-                    startPanX = panX;
-                    startPanY = panY;
-                    startScale = scale;
-                }, { passive: false });
-
-                function closeOverlay() {
-                    overlay.style.transition = 'opacity 0.2s ease';
-                    overlay.style.opacity = '0';
-                    setTimeout(() => overlay.remove(), 200);
-                }
-            }
-        }
-
         // Worker URL — after deploying, replace with your actual workers.dev URL
         const WORKER_URL = 'https://manga-proxy.hasan-celik1501.workers.dev';
 
@@ -1246,7 +1095,6 @@
                 setupFullscreen();
                 setupChapterSelector();
                 setupOrientationHandler();
-                setupDoubleTapZoom();
 
                 // Check URL hash for bookmarked position
                 const hashParams = parseUrlHash();
