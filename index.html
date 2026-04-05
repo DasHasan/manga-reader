@@ -583,11 +583,21 @@
             saveLastChapter(chapter);
             document.getElementById('headerTitle').textContent = `Kapitel ${chapter}`;
 
+            // Scroll while the loading screen still covers the page so the jump is invisible.
+            // Hit all three scroll roots — iOS A2H uses whichever one it feels like.
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+
             hideLoadingScreen();
             state.isLoading = false;
 
-            // Scroll after the loading screen is removed so iOS doesn't restore the old position
-            requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+            // Belt-and-suspenders: iOS sometimes resets scroll after a layout pass.
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+            }, 0);
         }
 
         // Called after background metadata arrives to trim nav buttons if needed
