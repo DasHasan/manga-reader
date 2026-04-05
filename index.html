@@ -1014,6 +1014,10 @@
             // Clear and reload from the target chapter
             document.getElementById('readerContainer').innerHTML = '';
             state.loadedChapters = [];
+            // Reset loaded flags — chapters are no longer in the DOM
+            state.chapters.forEach((data, num) => {
+                state.chapters.set(num, { pages: data.pages, loaded: false });
+            });
 
             state.isLoading = true;
             updateLoadingText(`Kapitel ${chapter} wird geladen...`);
