@@ -7,6 +7,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
     <title>One Piece Manga Reader</title>
     <style>
         * {
@@ -507,7 +509,7 @@
     <div class="progress-bar" id="progressBar" style="width: 0%"></div>
 
     <!-- Header -->
-    <header class="header" id="header">
+    <header class="header hidden" id="header">
         <div class="header-title">One Piece</div>
         <button class="btn btn-icon" id="btnChapters" title="Kapitel">
             <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
@@ -520,7 +522,7 @@
     </main>
 
     <!-- Controls -->
-    <div class="controls" id="controls">
+    <div class="controls hidden" id="controls">
         <div class="controls-row">
             <button class="btn btn-icon" id="btnFullscreen" title="Vollbild">
                 <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
@@ -557,7 +559,7 @@
             loadedChapters: [],
             isLoading: false,
             isFullscreen: false,
-            uiVisible: true,
+            uiVisible: false,
             hideUITimeout: null,
             currentVisiblePage: { chapter: null, page: null }
         };
@@ -732,8 +734,8 @@
                         const chapterData = state.chapters.get(chapter);
                         const totalPages = chapterData ? chapterData.pages : '?';
 
-                        // Update URL for bookmarking
-                        updateUrlHash(chapter, pageNum);
+                        // Save last read chapter
+                        saveLastChapter(chapter);
 
                         // Update progress bar
                         const progress = (pageNum / totalPages) * 100;
@@ -1027,28 +1029,18 @@
             hideLoadingScreen();
             state.isLoading = false;
 
-            // Scroll to top and update URL
+            // Scroll to top and save last chapter
             window.scrollTo(0, 0);
-            updateUrlHash(chapter, 1);
+            saveLastChapter(chapter);
         }
 
-        // URL hash management for bookmarking
-        function updateUrlHash(chapter, page) {
-            const newHash = `#chapter=${chapter}&page=${page}`;
-            if (window.location.hash !== newHash) {
-                history.replaceState(null, '', newHash);
-            }
+        // localStorage management for last read chapter
+        function saveLastChapter(chapter) {
+            try { localStorage.setItem('lastChapter', chapter); } catch(e) {}
         }
 
-        function parseUrlHash() {
-            const hash = window.location.hash.slice(1);
-            const params = new URLSearchParams(hash);
-            const chapter = parseInt(params.get('chapter'));
-            const page = parseInt(params.get('page'));
-            return {
-                chapter: isNaN(chapter) ? null : chapter,
-                page: isNaN(page) ? null : page
-            };
+        function loadLastChapter() {
+            try { return parseInt(localStorage.getItem('lastChapter')) || null; } catch(e) { return null; }
         }
 
         // Screen orientation handling
@@ -1096,8 +1088,8 @@
                 setupChapterSelector();
                 setupOrientationHandler();
 
-                // Check URL hash for bookmarked position
-                const hashParams = parseUrlHash();
+                // Check localStorage for last read chapter
+                const savedChapter = loadLastChapter();
 
                 // Fetch chapter list — replaces binary search
                 const entries = await fetchChapterEntries();
@@ -1112,11 +1104,9 @@
 
                 // Determine which chapter to load
                 let startChapter = state.latestChapter;
-                let startPage = 1;
 
-                if (hashParams.chapter && hashParams.chapter >= CONFIG.minChapter && hashParams.chapter <= state.latestChapter) {
-                    startChapter = hashParams.chapter;
-                    startPage = hashParams.page || 1;
+                if (savedChapter && savedChapter >= CONFIG.minChapter && savedChapter <= state.latestChapter) {
+                    startChapter = savedChapter;
                 }
 
                 state.currentChapter = startChapter;
@@ -1128,16 +1118,6 @@
 
                 // Hide loading screen
                 hideLoadingScreen();
-
-                // Scroll to specific page if bookmarked
-                if (startPage > 1) {
-                    setTimeout(() => {
-                        const targetPage = document.querySelector(`.page-wrapper[data-chapter="${startChapter}"][data-page="${startPage}"]`);
-                        if (targetPage) {
-                            targetPage.scrollIntoView({ behavior: 'instant' });
-                        }
-                    }, 100);
-                }
 
             } catch (error) {
                 console.error('Failed to initialize:', error);
