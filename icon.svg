@@ -1,19 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Background circle -->
-  <circle cx="256" cy="256" r="256" fill="#1a1a2e"/>
+  <!-- Black background -->
+  <rect width="512" height="512" fill="#000"/>
 
-  <!-- Hat brim (wide ellipse) -->
-  <ellipse cx="256" cy="300" rx="190" ry="38" fill="#f5c842" stroke="#c8960a" stroke-width="6"/>
+  <!-- ===== CROSSBONES ===== -->
+  <!-- Top-left bone arm -->
+  <line x1="105" y1="108" x2="210" y2="190" stroke="white" stroke-width="36" stroke-linecap="round"/>
+  <circle cx="88" cy="93" r="26" fill="white"/>
+  <circle cx="68" cy="73" r="22" fill="white"/>
+  <circle cx="105" cy="68" r="22" fill="white"/>
+
+  <!-- Top-right bone arm -->
+  <line x1="407" y1="108" x2="302" y2="190" stroke="white" stroke-width="36" stroke-linecap="round"/>
+  <circle cx="424" cy="93" r="26" fill="white"/>
+  <circle cx="444" cy="73" r="22" fill="white"/>
+  <circle cx="407" cy="68" r="22" fill="white"/>
+
+  <!-- Bottom-left bone arm -->
+  <line x1="118" y1="415" x2="210" y2="345" stroke="white" stroke-width="36" stroke-linecap="round"/>
+  <circle cx="97" cy="433" r="26" fill="white"/>
+  <circle cx="72" cy="455" r="22" fill="white"/>
+  <circle cx="105" cy="458" r="22" fill="white"/>
+
+  <!-- Bottom-right bone arm -->
+  <line x1="394" y1="415" x2="302" y2="345" stroke="white" stroke-width="36" stroke-linecap="round"/>
+  <circle cx="415" cy="433" r="26" fill="white"/>
+  <circle cx="440" cy="455" r="22" fill="white"/>
+  <circle cx="407" cy="458" r="22" fill="white"/>
+
+  <!-- ===== SKULL ===== -->
+  <circle cx="256" cy="305" r="165" fill="white" stroke="black" stroke-width="8"/>
+
+  <!-- Eye sockets -->
+  <circle cx="188" cy="275" r="48" fill="black"/>
+  <circle cx="324" cy="275" r="48" fill="black"/>
+
+  <!-- Nose -->
+  <circle cx="256" cy="340" r="18" fill="black"/>
+
+  <!-- Smile arc + teeth grid -->
+  <!-- Smile background arc -->
+  <path d="M 158 370 Q 156 430 256 445 Q 356 430 354 370 Z" fill="black"/>
+  <!-- White teeth area -->
+  <path d="M 166 374 Q 166 428 256 440 Q 346 428 346 374 Z" fill="white"/>
+  <!-- Vertical tooth dividers -->
+  <line x1="211" y1="374" x2="207" y2="438" stroke="black" stroke-width="7"/>
+  <line x1="233" y1="374" x2="231" y2="441" stroke="black" stroke-width="7"/>
+  <line x1="256" y1="374" x2="256" y2="442" stroke="black" stroke-width="7"/>
+  <line x1="279" y1="374" x2="281" y2="441" stroke="black" stroke-width="7"/>
+  <line x1="301" y1="374" x2="305" y2="438" stroke="black" stroke-width="7"/>
+  <!-- Horizontal tooth divider -->
+  <path d="M 168 400 Q 256 406 344 400" stroke="black" stroke-width="7" fill="none"/>
+
+  <!-- ===== STRAW HAT ===== -->
+  <!-- Hat brim -->
+  <ellipse cx="256" cy="162" rx="195" ry="20" fill="#f5c200" stroke="black" stroke-width="8"/>
 
   <!-- Hat crown -->
-  <path d="M 130 300 Q 140 180 256 170 Q 372 180 382 300 Z" fill="#f5c842" stroke="#c8960a" stroke-width="6"/>
+  <path d="M 148 162 Q 152 70 256 62 Q 360 70 364 162 Z" fill="#f5c200" stroke="black" stroke-width="8" stroke-linejoin="round"/>
 
-  <!-- Hat band (red) -->
-  <path d="M 148 285 Q 200 270 256 268 Q 312 270 364 285 L 360 300 Q 308 286 256 284 Q 204 286 152 300 Z" fill="#e8162e"/>
+  <!-- Red band -->
+  <path d="M 152 162 L 162 130 Q 256 118 350 130 L 360 162 Q 256 155 152 162 Z" fill="#e82020" stroke="black" stroke-width="6"/>
 
-  <!-- Brim underside shading -->
-  <ellipse cx="256" cy="300" rx="190" ry="38" fill="none" stroke="#c8960a" stroke-width="6"/>
-
-  <!-- Highlight on crown -->
-  <path d="M 200 210 Q 230 195 256 192 Q 230 200 215 225 Z" fill="#fde98a" opacity="0.5"/>
+  <!-- Hat straw lines on crown -->
+  <line x1="220" y1="80" x2="212" y2="125" stroke="black" stroke-width="5" stroke-linecap="round"/>
+  <line x1="240" y1="70" x2="236" y2="118" stroke="black" stroke-width="5" stroke-linecap="round"/>
+  <line x1="272" y1="70" x2="276" y2="118" stroke="black" stroke-width="5" stroke-linecap="round"/>
+  <line x1="292" y1="80" x2="300" y2="125" stroke="black" stroke-width="5" stroke-linecap="round"/>
 </svg>
