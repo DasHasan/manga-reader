@@ -552,6 +552,10 @@
             infiniteScrollThreshold: 1000
         };
 
+        // Incremented whenever the DOM is reset (e.g. jumpToChapter).
+        // loadChapter checks this after its async fetch to discard stale loads.
+        let loadGeneration = 0;
+
         const state = {
             latestChapter: null,
             currentChapter: null,
@@ -660,7 +664,11 @@
                 return;
             }
 
+            const generation = loadGeneration;
             const data = await fetchChapterData(chapter);
+
+            // DOM was reset (e.g. jumpToChapter fired) while we were fetching — discard
+            if (generation !== loadGeneration) return;
             const pageUrls = data.chapter.pages.map(p => p.url);
 
             if (!pageUrls.length) {
@@ -1011,6 +1019,10 @@
                 existingSection.scrollIntoView({ behavior: 'smooth' });
                 return;
             }
+
+            // Invalidate any in-flight loadChapter calls so they don't inject
+            // stale content into the freshly cleared DOM.
+            loadGeneration++;
 
             // Clear and reload from the target chapter
             document.getElementById('readerContainer').innerHTML = '';
