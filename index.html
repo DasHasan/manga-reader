@@ -582,10 +582,12 @@
             state.currentChapter = chapter;
             saveLastChapter(chapter);
             document.getElementById('headerTitle').textContent = `Kapitel ${chapter}`;
-            window.scrollTo(0, 0);
 
             hideLoadingScreen();
             state.isLoading = false;
+
+            // Scroll after the loading screen is removed so iOS doesn't restore the old position
+            requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }));
         }
 
         // Called after background metadata arrives to trim nav buttons if needed
