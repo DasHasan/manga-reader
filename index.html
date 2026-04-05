@@ -7,9 +7,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#000000">
-    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" type="image/svg+xml" href="icon.svg">
-    <title>One Piece Manga Reader</title>
+    <title>One Piece Manga</title>
     <style>
         * {
             margin: 0;
@@ -77,9 +77,9 @@
             height: calc(56px + env(safe-area-inset-top, 0));
             background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
             display: flex;
-            align-items: flex-end;
+            align-items: center;
             justify-content: space-between;
-            padding: 0 16px 8px;
+            padding: 0 16px;
             padding-top: env(safe-area-inset-top, 0);
             z-index: 100;
             transition: transform 0.3s ease, opacity 0.3s ease;
@@ -510,7 +510,7 @@
 
     <!-- Header -->
     <header class="header hidden" id="header">
-        <div class="header-title">One Piece</div>
+        <div class="header-title" id="headerTitle">Kapitel –</div>
         <button class="btn btn-icon" id="btnChapters" title="Kapitel">
             <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
         </button>
@@ -734,8 +734,9 @@
                         const chapterData = state.chapters.get(chapter);
                         const totalPages = chapterData ? chapterData.pages : '?';
 
-                        // Save last read chapter
+                        // Save last read chapter and update header title
                         saveLastChapter(chapter);
+                        document.getElementById('headerTitle').textContent = `Kapitel ${chapter}`;
 
                         // Update progress bar
                         const progress = (pageNum / totalPages) * 100;
@@ -1028,9 +1029,10 @@
             hideLoadingScreen();
             state.isLoading = false;
 
-            // Scroll to top and save last chapter
+            // Scroll to top, save last chapter, update header title
             window.scrollTo(0, 0);
             saveLastChapter(chapter);
+            document.getElementById('headerTitle').textContent = `Kapitel ${chapter}`;
         }
 
         // localStorage management for last read chapter
