@@ -875,13 +875,8 @@
             const btn = document.getElementById('btnFullscreen');
 
             if (!supportsFullscreen) {
-                // On iOS, repurpose the button as an immersive-mode toggle (hide all UI chrome)
-                btn.title = 'Immersiver Modus';
-                btn.addEventListener('click', () => {
-                    state.isFullscreen = !state.isFullscreen;
-                    document.body.classList.toggle('immersive', state.isFullscreen);
-                    updateFullscreenButton();
-                });
+                // On iOS the Fullscreen API is unsupported and the button breaks the UI — hide it entirely
+                btn.style.display = 'none';
                 return;
             }
 
